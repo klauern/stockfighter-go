@@ -1,7 +1,9 @@
 package stockfighter
 
 import (
+	"bytes"
 	"encoding/json"
+	"fmt"
 	"github.com/dropbox/godropbox/errors"
 	"io/ioutil"
 	"net/http"
@@ -46,7 +48,7 @@ type Order struct {
 }
 
 type OrderResponse struct {
-	Ok          string       `json:"ok"`
+	Ok          bool         `json:"ok"`
 	Symbol      string       `json:"symbol"`
 	Venue       string       `json:"venue"`
 	Direction   string       `json:"direction"`
@@ -103,10 +105,15 @@ func GetOrderBook(venue, stock string) (*OrderBook, error) {
 	return &book, nil
 }
 
-func NewOrder(order Order, apiKey string) (*OrderResponse, error) {
-	orderUrl := API_ENDPOINT + "/venues/" + order.Venue + "/stocks/" + order.Stock + "/orders"
+func PlaceOrder(order *Order, apiKey string) (*OrderResponse, error) {
+	orderUrl := API_ENDPOINT + "venues/" + order.Venue + "/stocks/" + order.Stock + "/orders"
+	fmt.Printf("URL : %+v", orderUrl)
 	client := &http.Client{}
-	req, err := http.NewRequest("GET", orderUrl, json.Marshal(order))
+	orderBytes, err := json.Marshal(order)
+	if err != nil {
+		return nil, err
+	}
+	req, err := http.NewRequest("GET", orderUrl, bytes.NewReader(orderBytes))
 	if err != nil {
 		return nil, err
 	}
@@ -116,7 +123,11 @@ func NewOrder(order Order, apiKey string) (*OrderResponse, error) {
 	if err != nil {
 		return nil, err
 	}
+	if resp.StatusCode >= 400 {
+		return nil, errors.New(fmt.Sprintf("Not Good: %v", resp.Status))
+	}
 	body, err := ioutil.ReadAll(resp.Body)
+	fmt.Printf("Response: %+v", string(body))
 	if err != nil {
 		return nil, err
 	}

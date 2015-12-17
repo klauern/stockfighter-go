@@ -1,6 +1,7 @@
 package stockfighter
 
 import (
+	"os"
 	"testing"
 )
 
@@ -29,5 +30,19 @@ func TestGetOrderBook(t *testing.T) {
 }
 
 func TestPutOrder(t *testing.T) {
-
+	order := &Order{
+		Account:   "EXB123456",
+		Venue:     "TESTEX",
+		Stock:     "FOOBAR",
+		Qty:       100,
+		Direction: "buy",
+		OrderType: "market",
+	}
+	resp, err := PlaceOrder(order, os.Getenv("STOCKFIGHTER_IO_API_KEY"))
+	if err != nil {
+		t.Fatalf("Error: %+v", err)
+	}
+	if !resp.Ok {
+		t.Fatalf("Not good: %+v", resp)
+	}
 }
