@@ -11,9 +11,9 @@ import (
 
 // goal: purchase 100,000 shares of <X>
 
-const account = "DWS33526922"
-const STOCK = "ZEG"
-const VENUE = "XIEIEX"
+const account = "PFB58322961"
+const STOCK = "HARC"
+const VENUE = "LEIBEX"
 const API_KEY_ENV = "STOCKFIGHTER_IO_API_KEY"
 
 // [Timers](timers) are for when you want to do
@@ -22,60 +22,93 @@ const API_KEY_ENV = "STOCKFIGHTER_IO_API_KEY"
 // intervals. Here's an example of a ticker that ticks
 // periodically until we stop it.
 
+var lastAsk, lastBid int
+var diffBid, diffAsk int
+var changeAsk, changeBid int
+
 func main() {
 
 	// Tickers use a similar mechanism to timers: a
 	// channel that is sent values. Here we'll use the
 	// `range` builtin on the channel to iterate over
 	// the values as they arrive every 500ms.
-	ticker := time.NewTicker(time.Millisecond * 500)
+	//	ticker := time.NewTicker(time.Millisecond * 250)
+	ticker := time.NewTicker(time.Second * 5)
 	go func() {
 		for range ticker.C {
 			quote, err := s.GetQuote(VENUE, STOCK, os.Getenv("STOCKFIGHTER_IO_API_KEY"))
 			if err != nil {
 				log.Fatal(err)
 			}
-			fmt.Printf("Spread: %6d / %-6d\tQuote: %s\tLast: %s\n", quote.Bid, quote.Ask, quote.QuoteTime, quote.LastTrade)
-			price := calcPrice(quote)
-			order := &s.Order{
-				Account:   account,
-				Venue:     VENUE,
-				Stock:     STOCK,
-				Qty:       50,
-				Direction: "buy",
-				OrderType: "limit",
-				Price:     price,
+
+			if quote.Ask > 0 {
+				diffAsk = quote.Ask - lastAsk
+				lastAsk = quote.Ask
+				changeAsk = changeAsk - lastAsk
 			}
-			result, err := s.PlaceOrder(order, os.Getenv(API_KEY_ENV))
-			if err != nil {
-				log.Fatalf("Error: %v\nResponse: %v", err, result)
+			if quote.Bid > 0 {
+				diffBid = quote.Bid - lastBid
+				lastBid = quote.Bid
+				changeBid = changeBid - lastBid
 			}
-			if result.Ok {
-				log.Printf("Made: %+v", result)
-			}
+			fmt.Printf("Spread: %4d (%5d) [%4d] / %-4d (%5d) [%4d]\tQuote: %s\tLast: %s\n", quote.Bid, diffBid, changeBid, quote.Ask, diffAsk, changeAsk, quote.QuoteTime, quote.LastTrade)
+			//			price := calcPrice(quote)
+			//			order := &s.Order{
+			//				Account:   account,
+			//				Venue:     VENUE,
+			//				Stock:     STOCK,
+			//				Qty:       100,
+			//				Direction: "buy",
+			//				OrderType: "limit",
+			//				Price:     calcBuy(quote),
+			//			}
+			//			result, err := s.PlaceOrder(order, os.Getenv(API_KEY_ENV))
+			//			if err != nil {
+			//				log.Fatalf("Error: %v\nResponse: %v", err, result)
+			//			}
+			//			order.Direction = "sell"
+			//			order.Qty = 75
+			//			order.Price = calcSell(quote)
+			//			result, err = s.PlaceOrder(order, os.Getenv(API_KEY_ENV))
 		}
 	}()
 
 	// Tickers can be stopped like timers. Once a ticker
 	// is stopped it won't receive any more values on its
 	// channel. We'll stop ours after 1600ms.
-	time.Sleep(time.Second * 120)
+	time.Sleep(time.Minute * 30)
 	ticker.Stop()
 	fmt.Println("Ticker stopped")
 }
 
-func calcPrice(quote *s.Quote) int {
+func calcBuy(quote *s.Quote) int {
 	if quote.Ask > 0 {
 		if quote.Bid > 0 {
-			return quote.Bid + 1
+			return quote.Bid - 10
 		} else {
-			return quote.Ask - 1
+			return quote.Last + 10
 		}
 	} else {
 		if quote.Bid > 0 {
-			return quote.Bid + 1
+			return quote.Bid - 10
 		} else {
-			return quote.Last
+			return quote.Last + 10
+		}
+	}
+}
+
+func calcSell(quote *s.Quote) int {
+	if quote.Ask > 0 {
+		if quote.Bid > 0 {
+			return quote.Bid + 10
+		} else {
+			return quote.Last - 10
+		}
+	} else {
+		if quote.Bid > 0 {
+			return quote.Bid + 10
+		} else {
+			return quote.Last - 10
 		}
 	}
 }
