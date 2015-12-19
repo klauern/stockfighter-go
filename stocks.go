@@ -10,31 +10,35 @@ import (
 	"time"
 )
 
+type ResponseWrapper struct {
+	Ok    bool   `json:"ok"`
+	Error string `json:"error,omitempty"`
+}
+
 type Symbol struct {
 	Name   string `json:"name"`
 	Symbol string `json:"symbol"`
 }
 
 type Stocks struct {
-	Ok      bool     `json:"ok"`
+	*ResponseWrapper
 	Symbols []Symbol `json:"symbols"`
-	Error   string   `json:"error,omitempty"`
 }
 
 type OrderBook struct {
-	Ok        bool         `json:"ok"`
+	*ResponseWrapper
 	Venue     string       `json:"venue,omitempty"`
 	Symbol    string       `json:"symbol,omitempty"`
 	Bids      []StockPrice `json:"bids,omitempty"`
 	Asks      []StockPrice `json:"asks,omitempty"`
 	Timestamp time.Time    `json:"ts,omitempty"`
-	Error     string       `json:"error,omitempty"`
 }
 
 type StockPrice struct {
-	Price int  `json:"price"`
-	Qty   int  `json:"qty"`
-	IsBuy bool `json:"isBuy"`
+	Price int       `json:"price"`
+	Qty   int       `json:"qty"`
+	IsBuy bool      `json:"isBuy,omitempty"`
+	Ts    time.Time `json:"ts,omitempty"`
 }
 
 type Order struct {
@@ -48,10 +52,11 @@ type Order struct {
 }
 
 type OrderResponse struct {
-	Ok          bool         `json:"ok"`
+	*ResponseWrapper
 	Symbol      string       `json:"symbol"`
 	Venue       string       `json:"venue"`
 	Direction   string       `json:"direction"`
+	OriginalQty int          `json:"originalQty,omitempty"`
 	Qty         int          `json:"qty"`
 	Price       int          `json:"price"`
 	OrderType   string       `json:"type"`
@@ -61,6 +66,22 @@ type OrderResponse struct {
 	Fills       []StockPrice `json:"fills"`
 	TotalFilled int          `json:"totalFilled"`
 	Open        bool         `json:"open"`
+}
+
+type Quote struct {
+	*ResponseWrapper
+	Symbol    string    `json:"symbol"`
+	Venue     string    `json:"venue"`
+	Bid       int       `json:"bid"`
+	Ask       int       `json:"ask"`
+	BidSize   int       `json:"bidSize"`
+	AskSize   int       `json:"askSize"`
+	BidDepth  int       `json:"bidDepth"`
+	AskDepth  int       `json:"askDepth"`
+	Last      int       `json:"last"`
+	LastSize  int       `json:"lastSize"`
+	LastTrade time.Time `json:"lastTrade"`
+	QuoteTime time.Time `json:"quoteTime"`
 }
 
 func GetVenueStocks(venue string) (*Stocks, error) {
@@ -137,4 +158,25 @@ func PlaceOrder(order *Order, apiKey string) (*OrderResponse, error) {
 		return nil, err
 	}
 	return &orderResp, nil
+}
+
+func GetQuote(venue, stock, apiKey string) (*Quote, error) {
+	resp, err := http.Get(API_ENDPOINT + "venues/" + venue + "/stocks/" + stock + "/quote")
+	if err != nil {
+		return nil, err
+	}
+	defer resp.Body.Close()
+	body, err := ioutil.ReadAll(resp.Body)
+	if err != nil {
+		return nil, err
+	}
+	var quote Quote
+	err = json.Unmarshal(body, &quote)
+	if err != nil {
+		return nil, err
+	}
+	if !quote.Ok || quote.Error != "" {
+		return nil, errors.New(quote.Error)
+	}
+	return &quote, nil
 }

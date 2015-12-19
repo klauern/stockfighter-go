@@ -1,6 +1,8 @@
 package stockfighter
 
 import (
+	"encoding/json"
+	"fmt"
 	"os"
 	"testing"
 )
@@ -31,9 +33,9 @@ func TestGetOrderBook(t *testing.T) {
 
 func TestPutOrder(t *testing.T) {
 	order := &Order{
-		Account:   "EXB123456",
-		Venue:     "TESTEX",
-		Stock:     "FOOBAR",
+		Account:   "MST92145671",
+		Venue:     "LOBHEX",
+		Stock:     "LPEI",
 		Qty:       100,
 		Direction: "buy",
 		OrderType: "market",
@@ -45,4 +47,21 @@ func TestPutOrder(t *testing.T) {
 	if !resp.Ok {
 		t.Fatalf("Not good: %+v", resp)
 	}
+}
+
+func TestCreatePutOrder(t *testing.T) {
+	order := &Order{
+		Account:   "EXB123456",
+		Venue:     "TESTEX",
+		Stock:     "FOOBAR",
+		Qty:       100,
+		Direction: "buy",
+		OrderType: "market",
+	}
+	orderBytes, err := json.Marshal(order)
+	if err != nil {
+		t.Fatal(err)
+	}
+	t.Log(orderBytes)
+	fmt.Println(string(orderBytes))
 }
