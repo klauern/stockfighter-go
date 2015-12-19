@@ -11,9 +11,10 @@ import (
 
 // goal: purchase 100,000 shares of <X>
 
-const account = "OMB39774443"
-const STOCK = "HEEY"
-const VENUE = "CDWBEX"
+const account = "DWS33526922"
+const STOCK = "ZEG"
+const VENUE = "XIEIEX"
+const API_KEY_ENV = "STOCKFIGHTER_IO_API_KEY"
 
 // [Timers](timers) are for when you want to do
 // something once in the future - _tickers_ are for when
@@ -35,24 +36,23 @@ func main() {
 				log.Fatal(err)
 			}
 			fmt.Printf("Spread: %6d / %-6d\tQuote: %s\tLast: %s\n", quote.Bid, quote.Ask, quote.QuoteTime, quote.LastTrade)
-			//			book, err := s.GetOrderBook(VENUE, STOCK)
-			//			if err != nil {
-			//				fmt.Printf("error: %+v\n", err)
-			//			} else {
-			//				fmt.Printf("{asks:")
-			//				for _, ask := range book.Asks {
-			//					fmt.Printf("%f", float32(ask.Price)/float32(ask.Qty))
-			//					fmt.Printf(",")
-			//				}
-			//				fmt.Printf("}")
-			//				fmt.Printf("{bids:")
-			//				for _, bid := range book.Bids {
-			//					fmt.Printf("%f", float32(bid.Price)/float32(bid.Qty))
-			//					fmt.Printf(",")
-			//				}
-			//				fmt.Printf("}\n")
-
-			//			}
+			price := calcPrice(quote)
+			order := &s.Order{
+				Account:   account,
+				Venue:     VENUE,
+				Stock:     STOCK,
+				Qty:       50,
+				Direction: "buy",
+				OrderType: "limit",
+				Price:     price,
+			}
+			result, err := s.PlaceOrder(order, os.Getenv(API_KEY_ENV))
+			if err != nil {
+				log.Fatalf("Error: %v\nResponse: %v", err, result)
+			}
+			if result.Ok {
+				log.Printf("Made: %+v", result)
+			}
 		}
 	}()
 
@@ -62,4 +62,20 @@ func main() {
 	time.Sleep(time.Second * 120)
 	ticker.Stop()
 	fmt.Println("Ticker stopped")
+}
+
+func calcPrice(quote *s.Quote) int {
+	if quote.Ask > 0 {
+		if quote.Bid > 0 {
+			return quote.Bid + 1
+		} else {
+			return quote.Ask - 1
+		}
+	} else {
+		if quote.Bid > 0 {
+			return quote.Bid + 1
+		} else {
+			return quote.Last
+		}
+	}
 }
