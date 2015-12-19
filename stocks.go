@@ -4,10 +4,11 @@ import (
 	"bytes"
 	"encoding/json"
 	"fmt"
-	"github.com/dropbox/godropbox/errors"
 	"io/ioutil"
 	"net/http"
 	"time"
+
+	"github.com/dropbox/godropbox/errors"
 )
 
 type ResponseWrapper struct {
@@ -60,7 +61,7 @@ type OrderResponse struct {
 	Qty         int          `json:"qty"`
 	Price       int          `json:"price"`
 	OrderType   string       `json:"type"`
-	Id          string       `json:"id"`
+	Id          int          `json:"id"`
 	Account     string       `json:"account"`
 	Timestamp   time.Time    `json:"ts"`
 	Fills       []StockPrice `json:"fills"`
@@ -128,13 +129,12 @@ func GetOrderBook(venue, stock string) (*OrderBook, error) {
 
 func PlaceOrder(order *Order, apiKey string) (*OrderResponse, error) {
 	orderUrl := API_ENDPOINT + "venues/" + order.Venue + "/stocks/" + order.Stock + "/orders"
-	fmt.Printf("URL : %+v", orderUrl)
 	client := &http.Client{}
 	orderBytes, err := json.Marshal(order)
 	if err != nil {
 		return nil, err
 	}
-	req, err := http.NewRequest("GET", orderUrl, bytes.NewReader(orderBytes))
+	req, err := http.NewRequest("POST", orderUrl, bytes.NewReader(orderBytes))
 	if err != nil {
 		return nil, err
 	}
@@ -148,7 +148,6 @@ func PlaceOrder(order *Order, apiKey string) (*OrderResponse, error) {
 		return nil, errors.New(fmt.Sprintf("Not Good: %v", resp.Status))
 	}
 	body, err := ioutil.ReadAll(resp.Body)
-	fmt.Printf("Response: %+v", string(body))
 	if err != nil {
 		return nil, err
 	}
