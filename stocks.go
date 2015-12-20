@@ -129,7 +129,7 @@ func (c *Client) PlaceOrder(order *Order) (*OrderResponse, error) {
 	return &orderResp, nil
 }
 
-func (c *Client) GetQuote(venue, stock, apiKey string) (*Quote, error) {
+func (c *Client) GetQuote(venue, stock string) (*Quote, error) {
 	resp, err := c.MakeRequest("GET", API_ENDPOINT+"venues/"+venue+"/stocks/"+stock+"/quote", nil)
 	if err != nil {
 		return nil, err

@@ -5,7 +5,6 @@ import (
 	"time"
 
 	"log"
-	"os"
 
 	s "github.com/klauern/stockfighter-go"
 )
@@ -40,7 +39,7 @@ func main() {
 	ticker := time.NewTicker(time.Second * 5)
 	go func() {
 		for range ticker.C {
-			quote, err := c.GetQuote(level.Venues[0], level.Tickers[0], os.Getenv(s.API_KEY_ENV))
+			quote, err := c.GetQuote(level.Venues[0], level.Tickers[0])
 			if err != nil {
 				log.Fatal(err)
 			}
