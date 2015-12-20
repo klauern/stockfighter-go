@@ -5,6 +5,7 @@ import (
 	"time"
 
 	"errors"
+	"fmt"
 	"log"
 )
 
@@ -117,6 +118,7 @@ func (c *Client) GetOrderBook(venue, stock string) (*OrderBook, error) {
 func (c *Client) PlaceOrder(order *Order) (*OrderResponse, error) {
 	orderUrl := API_ENDPOINT + "venues/" + order.Venue + "/stocks/" + order.Stock + "/orders"
 	resp, err := c.MakeRequest("POST", orderUrl, order)
+	fmt.Printf("Response: %v", string(resp))
 	if err != nil {
 		log.Fatalf("Bad request: %v", err)
 		return nil, err
@@ -124,6 +126,7 @@ func (c *Client) PlaceOrder(order *Order) (*OrderResponse, error) {
 	var orderResp OrderResponse
 	err = json.Unmarshal(resp, &orderResp)
 	if err != nil {
+		log.Fatalf("Unmarshal error: %+v", orderResp)
 		return nil, err
 	}
 	return &orderResp, nil

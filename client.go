@@ -3,6 +3,7 @@ package stockfighter
 import (
 	"bytes"
 	"encoding/json"
+	"fmt"
 	"io/ioutil"
 	"log"
 	"net/http"
@@ -15,19 +16,14 @@ const GameMasterApi string = "https://www.stockfighter.io/gm/"
 
 const API_KEY_ENV = "STOCKFIGHTER_IO_API_KEY"
 
-type LevelInstructions struct {
-	Instructions string `json:"Instructions"`
-	OrderTypes   string `json:"Order Types"`
-}
-
 type Level struct {
 	*ResponseWrapper
-	InstanceId int    `json:"instanceId"`
-	Account    string `json:"account"`
-	*LevelInstructions
-	Tickers              []string `json:"tickers"`
-	Venues               []string `json:"venues"`
-	SecondsPerTradingDay int      `json:"secondsPerTradingDay"`
+	InstanceId           int               `json:"instanceId"`
+	Account              string            `json:"account"`
+	LevelInstructions    map[string]string `json:"instructions"`
+	Tickers              []string          `json:"tickers"`
+	Venues               []string          `json:"venues"`
+	SecondsPerTradingDay int               `json:"secondsPerTradingDay"`
 }
 
 type LevelInstance struct {
@@ -56,11 +52,14 @@ func (c *Client) setAuthentication() {
 
 func (c *Client) MakeRequest(method, url string, bodyI interface{}) ([]byte, error) {
 	client := &http.Client{}
-	reqBody, err := json.Marshal(bodyI)
+	c.setAuthentication()
+	buf := &bytes.Buffer{}
+	encoder := json.NewEncoder(buf)
+	err := encoder.Encode(bodyI)
 	if err != nil {
 		return nil, err
 	}
-	req, err := http.NewRequest(method, url, bytes.NewReader(reqBody))
+	req, err := http.NewRequest(method, url, buf)
 	if err != nil {
 		return nil, err
 	}
@@ -80,14 +79,15 @@ func (c *Client) MakeRequest(method, url string, bodyI interface{}) ([]byte, err
 func (c *Client) StartLevel(level string) (*Level, error) {
 	resp, err := c.MakeRequest("POST", GameMasterApi+"levels/"+level, nil)
 	if err != nil {
+		panic(err)
 		log.Fatal(err)
 		return nil, err
 	}
 	levelResp := &Level{}
 	err = json.Unmarshal(resp, &levelResp)
 	if err != nil {
-		log.Fatal(err)
-		return nil, err
+		fmt.Printf("Resp: %+v", string(resp))
+		panic(err)
 	}
 	return levelResp, nil
 }
