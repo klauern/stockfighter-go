@@ -1,14 +1,11 @@
 package stockfighter
 
 import (
-	"bytes"
 	"encoding/json"
-	"fmt"
-	"io/ioutil"
-	"net/http"
 	"time"
 
-	"github.com/dropbox/godropbox/errors"
+	"errors"
+	"log"
 )
 
 type ResponseWrapper struct {
@@ -85,18 +82,13 @@ type Quote struct {
 	QuoteTime time.Time `json:"quoteTime"`
 }
 
-func GetVenueStocks(venue string) (*Stocks, error) {
-	resp, err := http.Get(API_ENDPOINT + "venues/" + venue + "/stocks")
-	if err != nil {
-		return nil, err
-	}
-	defer resp.Body.Close()
-	body, err := ioutil.ReadAll(resp.Body)
+func (c *Client) GetVenueStocks(venue string) (*Stocks, error) {
+	resp, err := c.MakeRequest("GET", API_ENDPOINT+"venues/"+venue+"/stocks", nil)
 	if err != nil {
 		return nil, err
 	}
 	var stocks Stocks
-	err = json.Unmarshal(body, &stocks)
+	err = json.Unmarshal(resp, &stocks)
 	if err != nil {
 		return nil, err
 	}
@@ -106,18 +98,13 @@ func GetVenueStocks(venue string) (*Stocks, error) {
 	return &stocks, nil
 }
 
-func GetOrderBook(venue, stock string) (*OrderBook, error) {
-	resp, err := http.Get(API_ENDPOINT + "venues/" + venue + "/stocks/" + stock)
-	if err != nil {
-		return nil, err
-	}
-	defer resp.Body.Close()
-	body, err := ioutil.ReadAll(resp.Body)
+func (c *Client) GetOrderBook(venue, stock string) (*OrderBook, error) {
+	resp, err := c.MakeRequest("GET", API_ENDPOINT+"venues/"+venue+"/stocks/"+stock, nil)
 	if err != nil {
 		return nil, err
 	}
 	var book OrderBook
-	err = json.Unmarshal(body, &book)
+	err = json.Unmarshal(resp, &book)
 	if err != nil {
 		return nil, err
 	}
@@ -127,50 +114,28 @@ func GetOrderBook(venue, stock string) (*OrderBook, error) {
 	return &book, nil
 }
 
-func PlaceOrder(order *Order, apiKey string) (*OrderResponse, error) {
+func (c *Client) PlaceOrder(order *Order) (*OrderResponse, error) {
 	orderUrl := API_ENDPOINT + "venues/" + order.Venue + "/stocks/" + order.Stock + "/orders"
-	client := &http.Client{}
-	orderBytes, err := json.Marshal(order)
+	resp, err := c.MakeRequest("POST", orderUrl, order)
 	if err != nil {
-		return nil, err
-	}
-	req, err := http.NewRequest("POST", orderUrl, bytes.NewReader(orderBytes))
-	if err != nil {
-		return nil, err
-	}
-	req.Header.Add("Accept", "application/json")
-	req.Header.Add("X-Starfighter-Authorization", apiKey)
-	resp, err := client.Do(req)
-	if err != nil {
-		return nil, err
-	}
-	if resp.StatusCode >= 400 {
-		return nil, errors.New(fmt.Sprintf("Not Good: %v", resp.Status))
-	}
-	body, err := ioutil.ReadAll(resp.Body)
-	if err != nil {
+		log.Fatalf("Bad request: %v", err)
 		return nil, err
 	}
 	var orderResp OrderResponse
-	err = json.Unmarshal(body, &orderResp)
+	err = json.Unmarshal(resp, &orderResp)
 	if err != nil {
 		return nil, err
 	}
 	return &orderResp, nil
 }
 
-func GetQuote(venue, stock, apiKey string) (*Quote, error) {
-	resp, err := http.Get(API_ENDPOINT + "venues/" + venue + "/stocks/" + stock + "/quote")
-	if err != nil {
-		return nil, err
-	}
-	defer resp.Body.Close()
-	body, err := ioutil.ReadAll(resp.Body)
+func (c *Client) GetQuote(venue, stock, apiKey string) (*Quote, error) {
+	resp, err := c.MakeRequest("GET", API_ENDPOINT+"venues/"+venue+"/stocks/"+stock+"/quote", nil)
 	if err != nil {
 		return nil, err
 	}
 	var quote Quote
-	err = json.Unmarshal(body, &quote)
+	err = json.Unmarshal(resp, &quote)
 	if err != nil {
 		return nil, err
 	}

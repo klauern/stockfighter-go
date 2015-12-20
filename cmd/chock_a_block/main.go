@@ -12,11 +12,6 @@ import (
 
 // goal: purchase 100,000 shares of <X>
 
-const account = "WS93484537"
-const STOCK = "EWAI"
-const VENUE = "YNYEX"
-const API_KEY_ENV = "STOCKFIGHTER_IO_API_KEY"
-
 // [Timers](timers) are for when you want to do
 // something once in the future - _tickers_ are for when
 // you want to do something repeatedly at regular
@@ -28,9 +23,14 @@ var diffBid, diffAsk int
 
 //var changeAsk, changeBid int
 
+var c *s.Client = &s.Client{}
+
 func main() {
 
-	fmt.Printf("%+v", s.StartLevel("chock_a_block", os.Getenv(API_KEY_ENV)))
+	level, err := c.StartLevel("chock_a_block")
+	if err != nil {
+		log.Fatal(err)
+	}
 
 	// Tickers use a similar mechanism to timers: a
 	// channel that is sent values. Here we'll use the
@@ -40,7 +40,7 @@ func main() {
 	ticker := time.NewTicker(time.Second * 5)
 	go func() {
 		for range ticker.C {
-			quote, err := s.GetQuote(VENUE, STOCK, os.Getenv(API_KEY_ENV))
+			quote, err := c.GetQuote(level.Venues[0], level.Tickers[0], os.Getenv(s.API_KEY_ENV))
 			if err != nil {
 				log.Fatal(err)
 			}
@@ -59,7 +59,7 @@ func main() {
 			fmt.Printf("Spread: %4d (%5d) / %-4d (%5d)\tQuote: %s\tLast: %s\n", quote.Bid, diffBid, quote.Ask, diffAsk, quote.QuoteTime, quote.LastTrade)
 			//			price := calcPrice(quote)
 			//			order := &s.Order{
-			//				Account:   account,
+			//				Account:   level.Account,
 			//				Venue:     VENUE,
 			//				Stock:     STOCK,
 			//				Qty:       100,

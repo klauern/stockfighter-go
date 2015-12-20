@@ -3,12 +3,13 @@ package stockfighter
 import (
 	"encoding/json"
 	"fmt"
-	"os"
 	"testing"
 )
 
+var client *Client = &Client{}
+
 func TestVenueStocks(t *testing.T) {
-	stocks, err := GetVenueStocks("TESTEX")
+	stocks, err := client.GetVenueStocks("TESTEX")
 	if err != nil {
 		t.Fatalf("Not able to get Venue Stocks.  Error: %+v", err)
 	}
@@ -19,7 +20,7 @@ func TestVenueStocks(t *testing.T) {
 }
 
 func TestGetOrderBook(t *testing.T) {
-	book, err := GetOrderBook("TESTEX", "FOOBAR")
+	book, err := client.GetOrderBook("TESTEX", "FOOBAR")
 	if err != nil {
 		t.Logf("%+v", book)
 		t.Fatalf("Error getting Order book: %v", err)
@@ -40,7 +41,7 @@ func TestPutOrder(t *testing.T) {
 		Direction: "buy",
 		OrderType: "market",
 	}
-	resp, err := PlaceOrder(order, os.Getenv("STOCKFIGHTER_IO_API_KEY"))
+	resp, err := client.PlaceOrder(order)
 	if err != nil {
 		t.Fatalf("Error: %+v", err)
 	}
@@ -64,4 +65,5 @@ func TestCreatePutOrder(t *testing.T) {
 	}
 	t.Log(orderBytes)
 	fmt.Println(string(orderBytes))
+
 }
