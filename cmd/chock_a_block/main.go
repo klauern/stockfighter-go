@@ -4,16 +4,17 @@ import (
 	"fmt"
 	"time"
 
-	s "github.com/klauern/stockfighter-go"
 	"log"
 	"os"
+
+	s "github.com/klauern/stockfighter-go"
 )
 
 // goal: purchase 100,000 shares of <X>
 
-const account = "PFB58322961"
-const STOCK = "HARC"
-const VENUE = "LEIBEX"
+const account = "WS93484537"
+const STOCK = "EWAI"
+const VENUE = "YNYEX"
 const API_KEY_ENV = "STOCKFIGHTER_IO_API_KEY"
 
 // [Timers](timers) are for when you want to do
@@ -24,9 +25,12 @@ const API_KEY_ENV = "STOCKFIGHTER_IO_API_KEY"
 
 var lastAsk, lastBid int
 var diffBid, diffAsk int
-var changeAsk, changeBid int
+
+//var changeAsk, changeBid int
 
 func main() {
+
+	fmt.Printf("%+v", s.StartLevel("chock_a_block", os.Getenv(API_KEY_ENV)))
 
 	// Tickers use a similar mechanism to timers: a
 	// channel that is sent values. Here we'll use the
@@ -36,7 +40,7 @@ func main() {
 	ticker := time.NewTicker(time.Second * 5)
 	go func() {
 		for range ticker.C {
-			quote, err := s.GetQuote(VENUE, STOCK, os.Getenv("STOCKFIGHTER_IO_API_KEY"))
+			quote, err := s.GetQuote(VENUE, STOCK, os.Getenv(API_KEY_ENV))
 			if err != nil {
 				log.Fatal(err)
 			}
@@ -44,14 +48,15 @@ func main() {
 			if quote.Ask > 0 {
 				diffAsk = quote.Ask - lastAsk
 				lastAsk = quote.Ask
-				changeAsk = changeAsk - lastAsk
+				//				changeAsk = changeAsk - lastAsk
 			}
 			if quote.Bid > 0 {
 				diffBid = quote.Bid - lastBid
 				lastBid = quote.Bid
-				changeBid = changeBid - lastBid
+				//				changeBid = changeBid - lastBid
 			}
-			fmt.Printf("Spread: %4d (%5d) [%4d] / %-4d (%5d) [%4d]\tQuote: %s\tLast: %s\n", quote.Bid, diffBid, changeBid, quote.Ask, diffAsk, changeAsk, quote.QuoteTime, quote.LastTrade)
+			//			fmt.Printf("Spread: %4d (%5d) [%4d] / %-4d (%5d) [%4d]\tQuote: %s\tLast: %s\n", quote.Bid, diffBid, changeBid, quote.Ask, diffAsk, changeAsk, quote.QuoteTime, quote.LastTrade)
+			fmt.Printf("Spread: %4d (%5d) / %-4d (%5d)\tQuote: %s\tLast: %s\n", quote.Bid, diffBid, quote.Ask, diffAsk, quote.QuoteTime, quote.LastTrade)
 			//			price := calcPrice(quote)
 			//			order := &s.Order{
 			//				Account:   account,
