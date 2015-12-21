@@ -7,6 +7,7 @@ import (
 	"log"
 
 	s "github.com/klauern/stockfighter-go"
+	"sync"
 )
 
 // goal: purchase 100,000 shares of <X>
@@ -22,6 +23,15 @@ var diffBid, diffAsk int
 
 //var changeAsk, changeBid int
 
+var book struct {
+	orders	*s.OrderBook
+	mux	sync.Mutex
+}
+
+func init() {
+	book = make(&book)
+}
+
 var c *s.Client = &s.Client{}
 
 func main() {
@@ -36,53 +46,74 @@ func main() {
 	// `range` builtin on the channel to iterate over
 	// the values as they arrive every 500ms.
 	//	ticker := time.NewTicker(time.Millisecond * 250)
-	ticker := time.NewTicker(time.Second * 5)
-	go func() {
-		for range ticker.C {
-			quote, err := c.GetQuote(level.Venues[0], level.Tickers[0])
-			if err != nil {
-				log.Fatal(err)
-			}
-
-			if quote.Ask > 0 {
-				diffAsk = quote.Ask - lastAsk
-				lastAsk = quote.Ask
-				//				changeAsk = changeAsk - lastAsk
-			}
-			if quote.Bid > 0 {
-				diffBid = quote.Bid - lastBid
-				lastBid = quote.Bid
-				//				changeBid = changeBid - lastBid
-			}
-			//			fmt.Printf("Spread: %4d (%5d) [%4d] / %-4d (%5d) [%4d]\tQuote: %s\tLast: %s\n", quote.Bid, diffBid, changeBid, quote.Ask, diffAsk, changeAsk, quote.QuoteTime, quote.LastTrade)
-			fmt.Printf("Spread: %4d (%5d) / %-4d (%5d)\tQuote: %s\tLast: %s\n", quote.Bid, diffBid, quote.Ask, diffAsk, quote.QuoteTime, quote.LastTrade)
-			//			price := calcPrice(quote)
-			//			order := &s.Order{
-			//				Account:   level.Account,
-			//				Venue:     VENUE,
-			//				Stock:     STOCK,
-			//				Qty:       100,
-			//				Direction: "buy",
-			//				OrderType: "limit",
-			//				Price:     calcBuy(quote),
-			//			}
-			//			result, err := s.PlaceOrder(order, os.Getenv(API_KEY_ENV))
-			//			if err != nil {
-			//				log.Fatalf("Error: %v\nResponse: %v", err, result)
-			//			}
-			//			order.Direction = "sell"
-			//			order.Qty = 75
-			//			order.Price = calcSell(quote)
-			//			result, err = s.PlaceOrder(order, os.Getenv(API_KEY_ENV))
-		}
-	}()
-
+	five_second_ticker := time.NewTicker(time.Second * 5)
+	one_second_ticker := time.NewTicker(time.Second * 1)
+	go queryQuotes(five_second_ticker, level)
+	go getBookOrders(one_second_ticker, level)
 	// Tickers can be stopped like timers. Once a ticker
 	// is stopped it won't receive any more values on its
 	// channel. We'll stop ours after 1600ms.
 	time.Sleep(time.Minute * 30)
-	ticker.Stop()
-	fmt.Println("Ticker stopped")
+	five_second_ticker.Stop()
+	one_second_ticker.Stop()
+	fmt.Println("Tickers stopped")
+}
+
+func getBookOrders(ticker *time.Ticker, level *s.Level) {
+	for range ticker.C {
+		book.mux.Lock()
+		var err error
+		book, err = c.GetOrderBook(level.Venues[0], level.Tickers[0])
+		if err != nil {
+			log.Fatal(err)
+		}
+		book.mux.Unlock()
+	}
+}
+
+func queryQuotes(ticker *time.Ticker, level *s.Level) {
+	for range ticker.C {
+		quote, err := c.GetQuote(level.Venues[0], level.Tickers[0])
+		if err != nil {
+			log.Fatal(err)
+		}
+
+		if quote.Ask > 0 {
+			diffAsk = quote.Ask - lastAsk
+			lastAsk = quote.Ask
+			//				changeAsk = changeAsk - lastAsk
+		}
+		if quote.Bid > 0 {
+			diffBid = quote.Bid - lastBid
+			lastBid = quote.Bid
+			//				changeBid = changeBid - lastBid
+		}
+		book, err := c.GetOrderBook(level.Venues[0], level.Tickers[0])
+		if err != nil {
+			log.Fatal(err)
+		}
+
+		//			fmt.Printf("Spread: %4d (%5d) [%4d] / %-4d (%5d) [%4d]\tQuote: %s\tLast: %s\n", quote.Bid, diffBid, changeBid, quote.Ask, diffAsk, changeAsk, quote.QuoteTime, quote.LastTrade)
+		fmt.Printf("Spread: %4d (%5d) / %-4d (%5d)\tDepth - Asks: %-5d Bids: %-5d\n", quote.Bid, diffBid, quote.Ask, diffAsk, len(book.Asks), len(book.Bids))
+		//			price := calcPrice(quote)
+		//			order := &s.Order{
+		//				Account:   level.Account,
+		//				Venue:     VENUE,
+		//				Stock:     STOCK,
+		//				Qty:       100,
+		//				Direction: "buy",
+		//				OrderType: "limit",
+		//				Price:     calcBuy(quote),
+		//			}
+		//			result, err := s.PlaceOrder(order, os.Getenv(API_KEY_ENV))
+		//			if err != nil {
+		//				log.Fatalf("Error: %v\nResponse: %v", err, result)
+		//			}
+		//			order.Direction = "sell"
+		//			order.Qty = 75
+		//			order.Price = calcSell(quote)
+		//			result, err = s.PlaceOrder(order, os.Getenv(API_KEY_ENV))
+	}
 }
 
 func calcBuy(quote *s.Quote) int {
