@@ -10,11 +10,12 @@ import (
 	"os"
 )
 
-const API_ENDPOINT string = "https://api.stockfighter.io/ob/api/"
-
-const GameMasterApi string = "https://www.stockfighter.io/gm/"
-
-const API_KEY_ENV = "STOCKFIGHTER_IO_API_KEY"
+const (
+	API_ENDPOINT     = "https://api.stockfighter.io/ob/api/"
+	WSS_API_ENDPOINT = "wss://api.stockfighter.io/ob/api/"
+	GameMasterApi    = "https://www.stockfighter.io/gm/"
+	API_KEY_ENV      = "STOCKFIGHTER_IO_API_KEY"
+)
 
 type Level struct {
 	*ResponseWrapper
