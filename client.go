@@ -4,12 +4,13 @@ import (
 	"bytes"
 	"encoding/json"
 	"fmt"
-	"github.com/gorilla/websocket"
 	"io/ioutil"
 	"log"
 	"net/http"
 	"net/url"
 	"os"
+
+	"github.com/gorilla/websocket"
 )
 
 const (
@@ -94,6 +95,72 @@ func (c *Client) StartLevel(level string) (*Level, error) {
 	return levelResp, nil
 }
 
+func (c *Client) RestartLevel(instance int, api_key string) (*Level, error) {
+	resp, err := c.MakeRequest("POST", GameMasterApi+"instances/"+string(instance)+"/restart", nil)
+	if err != nil {
+		panic(err)
+		log.Fatal(err)
+		return nil, err
+	}
+	levelResp := &Level{}
+	err = json.Unmarshal(resp, &levelResp)
+	if err != nil {
+		fmt.Printf("Resp: %+v", string(resp))
+		panic(err)
+	}
+	return levelResp, nil
+}
+
+func (c *Client) StopLevel(instance int, api_key string) (*Level, error) {
+	resp, err := c.MakeRequest("POST", GameMasterApi+"instances/"+string(instance)+"/stop", nil)
+	if err != nil {
+		panic(err)
+		log.Fatal(err)
+		return nil, err
+	}
+	levelResp := &Level{}
+	err = json.Unmarshal(resp, &levelResp)
+	if err != nil {
+		fmt.Printf("Resp: %+v", string(resp))
+		panic(err)
+	}
+	return levelResp, nil
+
+}
+
+func (c *Client) ResumeLevel(instance int, api_key string) (*Level, error) {
+	resp, err := c.MakeRequest("POST", GameMasterApi+"instances/"+string(instance)+"/resume", nil)
+	if err != nil {
+		panic(err)
+		log.Fatal(err)
+		return nil, err
+	}
+	levelResp := &Level{}
+	err = json.Unmarshal(resp, &levelResp)
+	if err != nil {
+		fmt.Printf("Resp: %+v", string(resp))
+		panic(err)
+	}
+	return levelResp, nil
+}
+
+func (c *Client) IsLevelActive(instance int, apiKey string) (*LevelInstance, error) {
+	resp, err := c.MakeRequest("GET", GameMasterApi+"instances/"+string(instance), nil)
+	if err != nil {
+		panic(err)
+		log.Fatal(err)
+		return nil, err
+	}
+	levelResp := &LevelInstance{}
+	err = json.Unmarshal(resp, &levelResp)
+	if err != nil {
+		fmt.Printf("Resp: %+v", string(resp))
+		panic(err)
+	}
+	return levelResp, nil
+
+}
+
 func (c *Client) createWebSocket(url string) (*websocket.Conn, error) {
 	c.setAuthentication()
 	auth := http.Header{}
@@ -143,20 +210,3 @@ func (c *Client) NewExecutionsForStock(account, venue, symbol string) (*websocke
 	}
 	return c.createWebSocket(u.String())
 }
-
-//
-//func RestartLevel(instance int, api_key string) (*Level, error) {
-//
-//}
-//
-//func StopLevel(instance int, api_key string) (*Level, error) {
-//
-//}
-//
-//func ResumeLevel(instance int, api_key string) (*Level, error) {
-//
-//}
-//
-//func IsLevelActive(instanceId int, apiKey string) (*LevelStatus, error) {
-//
-//}
