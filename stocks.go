@@ -68,7 +68,6 @@ type OrderResponse struct {
 }
 
 type Quote struct {
-	*ResponseWrapper
 	Symbol    string    `json:"symbol"`
 	Venue     string    `json:"venue"`
 	Bid       int       `json:"bid"`
@@ -81,6 +80,26 @@ type Quote struct {
 	LastSize  int       `json:"lastSize"`
 	LastTrade time.Time `json:"lastTrade"`
 	QuoteTime time.Time `json:"quoteTime"`
+}
+
+type QuoteResponse struct {
+	*ResponseWrapper
+	Quote Quote `json:"quote"`
+}
+
+type ExecutionsResponse struct {
+	*ResponseWrapper
+	Account          string    `json:"account"`
+	Venue            string    `json:"venue"`
+	Symbol           string    `json:"symbol"`
+	Order            Order     `json:"order"`
+	StandingId       int       `json:"standingId"`
+	IncomingId       int       `json:"incomingId"`
+	Price            int       `json:"price"`
+	Filled           int       `json:"filled"`
+	FilledAt         time.Time `json:"filledAt"`
+	StandingComplete bool      `json:"standingComplete"`
+	IncomingComplete bool      `json:"incomingComplete"`
 }
 
 func (c *Client) GetVenueStocks(venue string) (*Stocks, error) {
@@ -137,7 +156,7 @@ func (c *Client) GetQuote(venue, stock string) (*Quote, error) {
 	if err != nil {
 		return nil, err
 	}
-	var quote Quote
+	var quote QuoteResponse
 	err = json.Unmarshal(resp, &quote)
 	if err != nil {
 		return nil, err
@@ -145,5 +164,5 @@ func (c *Client) GetQuote(venue, stock string) (*Quote, error) {
 	if !quote.Ok || quote.Error != "" {
 		return nil, errors.New(quote.Error)
 	}
-	return &quote, nil
+	return &quote.Quote, nil
 }

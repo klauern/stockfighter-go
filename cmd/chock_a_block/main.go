@@ -2,12 +2,11 @@ package main
 
 import (
 	"fmt"
+	"log"
+	"sync"
 	"time"
 
-	"log"
-
-	"sync"
-
+	"github.com/gorilla/websocket"
 	s "github.com/klauern/stockfighter-go"
 )
 
@@ -16,6 +15,9 @@ import (
 
 var lastAsk, lastBid int
 var diffBid, diffAsk int
+var origin = "http://localhost/"
+
+var doneCh chan bool
 
 var book struct {
 	orders       *s.OrderBook
@@ -36,14 +38,31 @@ func main() {
 		log.Fatal(err)
 	}
 
+	tickertape, err := c.NewQuotesTickerTape(level.Account, level.Venues[0])
+	if err != nil {
+		log.Fatal(err)
+		panic(err)
+	}
+	defer tickertape.Close()
+	//go printTickerTape(tickertape)
+
+	executions, err := c.NewExecutions(level.Account, level.Venues[0])
+	if err != nil {
+		log.Fatal(err)
+		panic(err)
+	}
+	defer executions.Close()
+	go printExecutions(executions)
+
 	// need to either have websockets get these, or have these checked every 1 second or less
 	slow_ticker := time.NewTicker(time.Second * 1)
 	fast_ticker := time.NewTicker(time.Millisecond * 250)
 	go queryQuotes(slow_ticker, level)
-	go bookOrders(fast_ticker, level)
+	//go bookOrders(fast_ticker, level)
 
 	// sleep for 30 minutes, when it's probably over and done with
 	time.Sleep(time.Minute * 30)
+	doneCh <- true
 	slow_ticker.Stop()
 	fast_ticker.Stop()
 	fmt.Println("Tickers stopped")
@@ -52,12 +71,6 @@ func main() {
 // bookOrders will book+cancel orders based what's on the order book and where our current listing of bids is at
 func bookOrders(ticker *time.Ticker, level *s.Level) {
 	for range ticker.C {
-		book.mux.Lock()
-		var err error
-		book.orders, err = c.GetOrderBook(level.Venues[0], level.Tickers[0])
-		if err != nil {
-			log.Fatal(err)
-		}
 		mBid := book.orders.Bids[0].Price
 		for _, bid := range book.orders.Bids {
 			if bid.Price > mBid {
@@ -72,7 +85,30 @@ func bookOrders(ticker *time.Ticker, level *s.Level) {
 		}
 		fmt.Printf("MaxBid: %d\tMinAsk: %d\n", mBid, mAsk)
 		//fmt.Printf("Depth - Asks: %-5d Bids: %-5d\n", len(book.orders.Asks), len(book.orders.Bids))
-		book.mux.Unlock()
+	}
+}
+
+func printTickerTape(ws *websocket.Conn) {
+	for {
+		var quote s.QuoteResponse
+		err := ws.ReadJSON(&quote)
+		if err != nil {
+			log.Println("read:", err)
+			return
+		}
+		fmt.Printf("Quote: %+v\n", quote)
+	}
+}
+
+func printExecutions(ws *websocket.Conn) {
+	for {
+		var execution s.ExecutionsResponse
+		err := ws.ReadJSON(&execution)
+		if err != nil {
+			log.Println("read:", err)
+			return
+		}
+		fmt.Printf("Execution: %+v\n", execution)
 	}
 }
 

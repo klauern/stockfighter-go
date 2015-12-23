@@ -4,17 +4,18 @@ import (
 	"bytes"
 	"encoding/json"
 	"fmt"
+	"github.com/gorilla/websocket"
 	"io/ioutil"
 	"log"
 	"net/http"
+	"net/url"
 	"os"
 )
 
 const (
-	API_ENDPOINT     = "https://api.stockfighter.io/ob/api/"
-	WSS_API_ENDPOINT = "wss://api.stockfighter.io/ob/api/"
-	GameMasterApi    = "https://www.stockfighter.io/gm/"
-	API_KEY_ENV      = "STOCKFIGHTER_IO_API_KEY"
+	API_ENDPOINT  = "https://api.stockfighter.io/ob/api/"
+	GameMasterApi = "https://www.stockfighter.io/gm/"
+	API_KEY_ENV   = "STOCKFIGHTER_IO_API_KEY"
 )
 
 type Level struct {
@@ -91,6 +92,56 @@ func (c *Client) StartLevel(level string) (*Level, error) {
 		panic(err)
 	}
 	return levelResp, nil
+}
+
+func (c *Client) createWebSocket(url string) (*websocket.Conn, error) {
+	c.setAuthentication()
+	auth := http.Header{}
+	for k, v := range c.Headers {
+		auth.Add(k, v)
+	}
+	conn, _, err := websocket.DefaultDialer.Dial(url, auth)
+	if err != nil {
+		fmt.Println(err)
+		return nil, err
+	}
+	return conn, nil
+}
+
+func (c *Client) NewQuotesTickerTape(account, venue string) (*websocket.Conn, error) {
+	u := url.URL{
+		Scheme: "wss",
+		Host:   "api.stockfighter.io:443",
+		Path:   "/ob/api/ws/" + account + "/venues/" + venue + "/tickertape",
+	}
+	return c.createWebSocket(u.String())
+}
+
+func (c *Client) NewQuotesTickerTapeStock(account, venue, symbol string) (*websocket.Conn, error) {
+	u := url.URL{
+		Scheme: "wss",
+		Host:   "api.stockfighter.io:443",
+		Path:   "/ob/api/ws/" + account + "/venues/" + venue + "/tickertape/stocks/" + symbol,
+	}
+	return c.createWebSocket(u.String())
+}
+
+func (c *Client) NewExecutions(account, venue string) (*websocket.Conn, error) {
+	u := url.URL{
+		Scheme: "wss",
+		Host:   "api.stockfighter.io:443",
+		Path:   "/ob/api/ws/" + account + "/venues/" + venue + "/executions",
+	}
+	return c.createWebSocket(u.String())
+}
+
+func (c *Client) NewExecutionsForStock(account, venue, symbol string) (*websocket.Conn, error) {
+	u := url.URL{
+		Scheme: "wss",
+		Host:   "api.stockfighter.io:443",
+		Path:   "/ob/api/ws/" + account + "/venues/" + venue + "/executions/stocks/" + symbol,
+	}
+	return c.createWebSocket(u.String())
 }
 
 //
