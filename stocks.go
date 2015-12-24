@@ -166,3 +166,20 @@ func (c *Client) GetQuote(venue, stock string) (*Quote, error) {
 	}
 	return &quote.Quote, nil
 }
+
+func (c *Client) CancelOrder(venue, stock, order string) (*OrderResponse, error) {
+	orderUrl := API_ENDPOINT + "venues/" + venue + "/stocks/" + stock + "/orders/" + order
+	resp, err := c.MakeRequest("DELETE", orderUrl, order)
+	fmt.Printf("Response: %v", string(resp))
+	if err != nil {
+		log.Fatalf("Bad request: %v", err)
+		return nil, err
+	}
+	var orderResp OrderResponse
+	err = json.Unmarshal(resp, &orderResp)
+	if err != nil {
+		log.Fatalf("Unmarshal error: %+v", orderResp)
+		return nil, err
+	}
+	return &orderResp, nil
+}
