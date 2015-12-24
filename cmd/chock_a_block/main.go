@@ -77,15 +77,15 @@ func printTickerTape(ws *websocket.Conn, level *s.Level) {
 			}
 			if diff < 100 {
 				fmt.Printf("Difference is %d", diff)
-				myBid = quote.Quote.Last + 10
+				myBid = quote.Quote.Ask + 5
 			}
 			c.PlaceOrder(&s.Order{
 				Account:   level.Account,
 				Venue:     level.Venues[0],
 				Stock:     level.Tickers[0],
-				Qty:       10000,
+				Qty:       25,
 				Direction: "buy",
-				OrderType: "limit",
+				OrderType: "fok",
 				Price:     myBid,
 			})
 			myAsk = quote.Quote.Ask - 5
@@ -95,7 +95,7 @@ func printTickerTape(ws *websocket.Conn, level *s.Level) {
 				Stock:     level.Tickers[0],
 				Qty:       10000,
 				Direction: "sell",
-				OrderType: "limit",
+				OrderType: "ioc",
 				Price:     myAsk,
 			})
 		}
