@@ -15,9 +15,6 @@ import (
 
 var lastAsk, lastBid int
 var diffBid, diffAsk int
-var origin = "http://localhost/"
-
-var doneCh chan bool
 
 var book struct {
 	orders       *s.OrderBook
@@ -44,7 +41,7 @@ func main() {
 		panic(err)
 	}
 	defer tickertape.Close()
-	//go printTickerTape(tickertape)
+	go printTickerTape(tickertape)
 
 	executions, err := c.NewExecutions(level.Account, level.Venues[0])
 	if err != nil {
@@ -54,17 +51,13 @@ func main() {
 	defer executions.Close()
 	go printExecutions(executions)
 
-	// need to either have websockets get these, or have these checked every 1 second or less
-	slow_ticker := time.NewTicker(time.Second * 1)
-	fast_ticker := time.NewTicker(time.Millisecond * 250)
-	go queryQuotes(slow_ticker, level)
-	//go bookOrders(fast_ticker, level)
+	// sleep time, when it's probably over and done with
+	sleepTime := time.Minute * 1
 
-	// sleep for 30 minutes, when it's probably over and done with
-	time.Sleep(time.Minute * 30)
-	doneCh <- true
-	slow_ticker.Stop()
-	fast_ticker.Stop()
+	// set read timeout in case something is waiting after this is done running
+	tickertape.SetReadDeadline(time.Now().Add(sleepTime))
+	executions.SetReadDeadline(time.Now().Add(sleepTime))
+	time.Sleep(sleepTime)
 	fmt.Println("Tickers stopped")
 }
 
@@ -94,7 +87,6 @@ func printTickerTape(ws *websocket.Conn) {
 		err := ws.ReadJSON(&quote)
 		if err != nil {
 			log.Println("read:", err)
-			return
 		}
 		fmt.Printf("Quote: %+v\n", quote)
 	}
@@ -105,8 +97,7 @@ func printExecutions(ws *websocket.Conn) {
 		var execution s.ExecutionsResponse
 		err := ws.ReadJSON(&execution)
 		if err != nil {
-			log.Println("read:", err)
-			return
+			log.Printf("ExecutionResponse Error: %v\n", err)
 		}
 		fmt.Printf("Execution: %+v\n", execution)
 	}
