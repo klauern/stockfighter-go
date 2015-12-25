@@ -8,25 +8,36 @@ import (
 
 	"github.com/gorilla/websocket"
 	s "github.com/klauern/stockfighter-go"
+	"github.com/montanaflynn/stats"
+	"github.com/zfjagann/golang-ring"
 )
 
 // goal: purchase 100,000 shares.  Not sure what the parameters are supposed to be, but as long as it doesn't hose me,
 // I think keeping the sells above the buys should keep me in the black.
-
-var myAsk, myBid int
-
 var book struct {
 	orders       *s.OrderBook
 	totalOrdered int
 	mux          *sync.Mutex
 }
 
+type StockStats struct {
+	min    int
+	max    int
+	median int
+	mean   int
+}
+
+var bidStats, askStats *StockStats
+var myBid, myAsk int
+var c *s.Client = &s.Client{}
+var latest *ring.Ring = &ring.Ring{}
+var calcTicker *time.Ticker
+
 func init() {
 	book.mux = &sync.Mutex{}
 	book.orders = &s.OrderBook{}
+	calcTicker = time.NewTicker(time.Millisecond * 250)
 }
-
-var c *s.Client = &s.Client{}
 
 func main() {
 	level, err := c.StartLevel("chock_a_block")
@@ -50,6 +61,8 @@ func main() {
 	defer executions.Close()
 	go printExecutions(executions, level)
 
+	go calcBuy()
+	go calcAsk()
 	// sleep time, when it's probably over and done with
 	sleepTime := time.Minute * 30
 
@@ -70,6 +83,9 @@ func printTickerTape(ws *websocket.Conn, level *s.Level) {
 		// Create Quote, fix OrderBook
 		fmt.Printf("Spread: %5d / %-5d - Last %5d\t\n", quote.Quote.Bid, quote.Quote.Ask, quote.Quote.Last)
 
+		latest.Enqueue(quote)
+
+		fmt.Printf("Ring capacity %v\n", latest.Capacity())
 		if quote.Quote.Bid > myBid && quote.Quote.Ask > myAsk {
 			diff := quote.Quote.Bid - myBid
 			if diff < 0 {
@@ -83,10 +99,10 @@ func printTickerTape(ws *websocket.Conn, level *s.Level) {
 				Account:   level.Account,
 				Venue:     level.Venues[0],
 				Stock:     level.Tickers[0],
-				Qty:       25,
+				Qty:       10000,
 				Direction: "buy",
-				OrderType: "fok",
-				Price:     myBid,
+				OrderType: "limit",
+				Price:     bidStats.median,
 			})
 			myAsk = quote.Quote.Ask - 5
 			c.PlaceOrder(&s.Order{
@@ -99,7 +115,8 @@ func printTickerTape(ws *websocket.Conn, level *s.Level) {
 				Price:     myAsk,
 			})
 		}
-		//fmt.Printf("Quote: %+v\n", quote)
+		fmt.Printf("Bid Statistics: Mean %5d Median %5d Min %5d Max %5d\n", bidStats.mean, bidStats.median, bidStats.min, bidStats.max)
+		fmt.Printf("Ask Statistics: Mean %5d Median %5d Min %5d Max %5d\n", askStats.mean, askStats.median, askStats.min, askStats.max)
 	}
 }
 
@@ -120,5 +137,43 @@ func printExecutions(ws *websocket.Conn, level *s.Level) {
 		}
 		// Cancel OrderBook, adjust bids
 		//fmt.Printf("Execution: %+v\n", execution)
+	}
+}
+
+func calcBuy() {
+	for range calcTicker.C {
+		var quotes []interface{} = latest.Values()
+		var bidData = []float64{}
+		for _, v := range quotes {
+			quote := v.(s.QuoteResponse)
+			bidData = append(bidData, float64(quote.Quote.Bid))
+		}
+		median, _ := stats.Median(bidData)
+		bidStats.median = int(median)
+		mean, _ := stats.Mean(bidData)
+		bidStats.mean = int(mean)
+		min, _ := stats.Min(bidData)
+		bidStats.min = int(min)
+		max, _ := stats.Max(bidData)
+		bidStats.max = int(max)
+	}
+}
+
+func calcAsk() {
+	for range calcTicker.C {
+		var quotes []interface{} = latest.Values()
+		var askData = []float64{}
+		for _, v := range quotes {
+			quote := v.(s.QuoteResponse)
+			askData = append(askData, float64(quote.Quote.Ask))
+		}
+		median, _ := stats.Median(askData)
+		askStats.median = int(median)
+		mean, _ := stats.Mean(askData)
+		askStats.mean = int(mean)
+		min, _ := stats.Min(askData)
+		askStats.min = int(min)
+		max, _ := stats.Max(askData)
+		askStats.max = int(max)
 	}
 }
