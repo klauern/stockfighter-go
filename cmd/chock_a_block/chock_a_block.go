@@ -25,27 +25,31 @@ type StockStats struct {
 	max    int
 	median int
 	mean   int
-	mux    *sync.Mutex
+	//mux    *sync.Mutex
 }
 
 var bidStats, askStats *StockStats
 var myBid, myAsk int
 var c *s.Client = &s.Client{}
 var latest *ring.Ring = &ring.Ring{}
-var bidTicker, askTicker *time.Ticker
+var ringMux *sync.Mutex
+var bidTicker = time.NewTicker(time.Millisecond * 250)
+var askTicker = time.NewTicker(time.Millisecond * 250)
 
 func init() {
 	book.mux = &sync.Mutex{}
 	book.orders = &s.OrderBook{}
-	bidTicker = time.NewTicker(time.Millisecond * 250)
-	askTicker = time.NewTicker(time.Millisecond * 250)
 }
 
 func main() {
 	level, err := c.StartLevel("chock_a_block")
 	if err != nil {
 		log.Fatal(err)
+		panic(err)
 	}
+	go calcBuy()
+	go calcAsk()
+	time.Sleep(time.Second * 10)
 
 	tickertape, err := c.NewQuotesTickerTape(level.Account, level.Venues[0])
 	if err != nil {
@@ -63,8 +67,6 @@ func main() {
 	defer executions.Close()
 	go printExecutions(executions, level)
 
-	go calcBuy()
-	go calcAsk()
 	// sleep time, when it's probably over and done with
 	sleepTime := time.Minute * 30
 
@@ -81,11 +83,14 @@ func printTickerTape(ws *websocket.Conn, level *s.Level) {
 		err := ws.ReadJSON(&quote)
 		if err != nil {
 			log.Println("read:", err)
+			panic(err)
 		}
 		// Create Quote, fix OrderBook
 		//fmt.Printf("Spread: %5d / %-5d - Last %5d\t\n", quote.Quote.Bid, quote.Quote.Ask, quote.Quote.Last)
 
+		ringMux.Lock()
 		latest.Enqueue(quote)
+		ringMux.Unlock()
 
 		//fmt.Printf("Ring capacity %v\n", latest.Capacity())
 		if quote.Quote.Bid > myBid && quote.Quote.Ask > myAsk {
@@ -97,7 +102,6 @@ func printTickerTape(ws *websocket.Conn, level *s.Level) {
 				fmt.Printf("Difference is %d", diff)
 				myBid = quote.Quote.Ask + 5
 			}
-			bidStats.mux.Lock()
 			c.PlaceOrder(&s.Order{
 				Account:   level.Account,
 				Venue:     level.Venues[0],
@@ -105,9 +109,8 @@ func printTickerTape(ws *websocket.Conn, level *s.Level) {
 				Qty:       10000,
 				Direction: "buy",
 				OrderType: "limit",
-				Price:     bidStats.median,
+				Price:     bidStats.min,
 			})
-			bidStats.mux.Unlock()
 			myAsk = quote.Quote.Ask - 5
 			c.PlaceOrder(&s.Order{
 				Account:   level.Account,
@@ -116,15 +119,11 @@ func printTickerTape(ws *websocket.Conn, level *s.Level) {
 				Qty:       10000,
 				Direction: "sell",
 				OrderType: "ioc",
-				Price:     myAsk,
+				Price:     askStats.max,
 			})
 		}
-		bidStats.mux.Lock()
 		fmt.Printf("Bid Statistics: Mean %5d Median %5d Min %5d Max %5d\n", bidStats.mean, bidStats.median, bidStats.min, bidStats.max)
-		bidStats.mux.Unlock()
-		askStats.mux.Lock()
 		fmt.Printf("Ask Statistics: Mean %5d Median %5d Min %5d Max %5d\n", askStats.mean, askStats.median, askStats.min, askStats.max)
-		askStats.mux.Unlock()
 	}
 }
 
@@ -139,6 +138,7 @@ func printExecutions(ws *websocket.Conn, level *s.Level) {
 		if !execution.IncomingComplete && execution.Filled < 5000 {
 			resp, err := c.CancelOrder(execution.Venue, execution.Symbol, string(execution.IncomingId))
 			if err != nil {
+				log.Fatal(err)
 				panic(err)
 			}
 			fmt.Printf("Cancelled %v", resp.Id)
@@ -150,42 +150,93 @@ func printExecutions(ws *websocket.Conn, level *s.Level) {
 
 func calcBuy() {
 	for range bidTicker.C {
+		ringMux.Lock()
 		var quotes []interface{} = latest.Values()
+		ringMux.Unlock()
+		if len(quotes) < 5 {
+			continue
+		}
 		var bidData = []float64{}
 		for _, v := range quotes {
 			quote := v.(s.QuoteResponse)
 			bidData = append(bidData, float64(quote.Quote.Bid))
 		}
-		bidStats.mux.Lock()
-		median, _ := stats.Median(bidData)
-		bidStats.median = int(median)
-		mean, _ := stats.Mean(bidData)
-		bidStats.mean = int(mean)
-		min, _ := stats.Min(bidData)
-		bidStats.min = int(min)
-		max, _ := stats.Max(bidData)
-		bidStats.max = int(max)
-		bidStats.mux.Unlock()
+		median, err := stats.Median(bidData)
+		if err != nil {
+			panic(err)
+		}
+
+		mean, err := stats.Mean(bidData)
+		if err != nil {
+			panic(err)
+		}
+		min, err := stats.Min(bidData)
+		if err != nil {
+			panic(err)
+		}
+		max, err := stats.Max(bidData)
+		if err != nil {
+			panic(err)
+		}
+
+		if bidStats == nil {
+			bidStats = &StockStats{
+				median: int(median),
+				min:    int(min),
+				mean:   int(mean),
+				max:    int(max),
+			}
+		} else {
+			bidStats.median = int(median)
+			bidStats.min = int(min)
+			bidStats.mean = int(mean)
+			bidStats.max = int(max)
+		}
+
 	}
 }
 
 func calcAsk() {
 	for range askTicker.C {
+		ringMux.Lock()
 		var quotes []interface{} = latest.Values()
+		ringMux.Unlock()
+		if len(quotes) < 5 {
+			continue
+		}
 		var askData = []float64{}
 		for _, v := range quotes {
 			quote := v.(s.QuoteResponse)
 			askData = append(askData, float64(quote.Quote.Ask))
 		}
-		askStats.mux.Lock()
-		median, _ := stats.Median(askData)
-		askStats.median = int(median)
-		mean, _ := stats.Mean(askData)
-		askStats.mean = int(mean)
-		min, _ := stats.Min(askData)
-		askStats.min = int(min)
-		max, _ := stats.Max(askData)
-		askStats.max = int(max)
-		askStats.mux.Unlock()
+		median, err := stats.Median(askData)
+		if err != nil {
+			panic(err)
+		}
+		mean, err := stats.Mean(askData)
+		if err != nil {
+			panic(err)
+		}
+		min, err := stats.Min(askData)
+		if err != nil {
+			panic(err)
+		}
+		max, err := stats.Max(askData)
+		if err != nil {
+			panic(err)
+		}
+		if askStats == nil {
+			askStats = &StockStats{
+				min:    int(min),
+				mean:   int(mean),
+				median: int(median),
+				max:    int(max),
+			}
+		} else {
+			askStats.min = int(min)
+			askStats.mean = int(mean)
+			askStats.median = int(median)
+			askStats.max = int(max)
+		}
 	}
 }
