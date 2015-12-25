@@ -25,18 +25,20 @@ type StockStats struct {
 	max    int
 	median int
 	mean   int
+	mux    *sync.Mutex
 }
 
 var bidStats, askStats *StockStats
 var myBid, myAsk int
 var c *s.Client = &s.Client{}
 var latest *ring.Ring = &ring.Ring{}
-var calcTicker *time.Ticker
+var bidTicker, askTicker *time.Ticker
 
 func init() {
 	book.mux = &sync.Mutex{}
 	book.orders = &s.OrderBook{}
-	calcTicker = time.NewTicker(time.Millisecond * 250)
+	bidTicker = time.NewTicker(time.Millisecond * 250)
+	askTicker = time.NewTicker(time.Millisecond * 250)
 }
 
 func main() {
@@ -81,11 +83,11 @@ func printTickerTape(ws *websocket.Conn, level *s.Level) {
 			log.Println("read:", err)
 		}
 		// Create Quote, fix OrderBook
-		fmt.Printf("Spread: %5d / %-5d - Last %5d\t\n", quote.Quote.Bid, quote.Quote.Ask, quote.Quote.Last)
+		//fmt.Printf("Spread: %5d / %-5d - Last %5d\t\n", quote.Quote.Bid, quote.Quote.Ask, quote.Quote.Last)
 
 		latest.Enqueue(quote)
 
-		fmt.Printf("Ring capacity %v\n", latest.Capacity())
+		//fmt.Printf("Ring capacity %v\n", latest.Capacity())
 		if quote.Quote.Bid > myBid && quote.Quote.Ask > myAsk {
 			diff := quote.Quote.Bid - myBid
 			if diff < 0 {
@@ -95,6 +97,7 @@ func printTickerTape(ws *websocket.Conn, level *s.Level) {
 				fmt.Printf("Difference is %d", diff)
 				myBid = quote.Quote.Ask + 5
 			}
+			bidStats.mux.Lock()
 			c.PlaceOrder(&s.Order{
 				Account:   level.Account,
 				Venue:     level.Venues[0],
@@ -104,6 +107,7 @@ func printTickerTape(ws *websocket.Conn, level *s.Level) {
 				OrderType: "limit",
 				Price:     bidStats.median,
 			})
+			bidStats.mux.Unlock()
 			myAsk = quote.Quote.Ask - 5
 			c.PlaceOrder(&s.Order{
 				Account:   level.Account,
@@ -115,8 +119,12 @@ func printTickerTape(ws *websocket.Conn, level *s.Level) {
 				Price:     myAsk,
 			})
 		}
+		bidStats.mux.Lock()
 		fmt.Printf("Bid Statistics: Mean %5d Median %5d Min %5d Max %5d\n", bidStats.mean, bidStats.median, bidStats.min, bidStats.max)
+		bidStats.mux.Unlock()
+		askStats.mux.Lock()
 		fmt.Printf("Ask Statistics: Mean %5d Median %5d Min %5d Max %5d\n", askStats.mean, askStats.median, askStats.min, askStats.max)
+		askStats.mux.Unlock()
 	}
 }
 
@@ -141,13 +149,14 @@ func printExecutions(ws *websocket.Conn, level *s.Level) {
 }
 
 func calcBuy() {
-	for range calcTicker.C {
+	for range bidTicker.C {
 		var quotes []interface{} = latest.Values()
 		var bidData = []float64{}
 		for _, v := range quotes {
 			quote := v.(s.QuoteResponse)
 			bidData = append(bidData, float64(quote.Quote.Bid))
 		}
+		bidStats.mux.Lock()
 		median, _ := stats.Median(bidData)
 		bidStats.median = int(median)
 		mean, _ := stats.Mean(bidData)
@@ -156,17 +165,19 @@ func calcBuy() {
 		bidStats.min = int(min)
 		max, _ := stats.Max(bidData)
 		bidStats.max = int(max)
+		bidStats.mux.Unlock()
 	}
 }
 
 func calcAsk() {
-	for range calcTicker.C {
+	for range askTicker.C {
 		var quotes []interface{} = latest.Values()
 		var askData = []float64{}
 		for _, v := range quotes {
 			quote := v.(s.QuoteResponse)
 			askData = append(askData, float64(quote.Quote.Ask))
 		}
+		askStats.mux.Lock()
 		median, _ := stats.Median(askData)
 		askStats.median = int(median)
 		mean, _ := stats.Mean(askData)
@@ -175,5 +186,6 @@ func calcAsk() {
 		askStats.min = int(min)
 		max, _ := stats.Max(askData)
 		askStats.max = int(max)
+		askStats.mux.Unlock()
 	}
 }
