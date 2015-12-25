@@ -10,15 +10,10 @@ import (
 	s "github.com/klauern/stockfighter-go"
 	"github.com/montanaflynn/stats"
 	"github.com/zfjagann/golang-ring"
+	"runtime"
 )
 
 // goal: purchase 100,000 shares.  Not sure what the parameters are supposed to be, but as long as it doesn't hose me,
-// I think keeping the sells above the buys should keep me in the black.
-var book struct {
-	orders       *s.OrderBook
-	totalOrdered int
-	mux          *sync.Mutex
-}
 
 type StockStats struct {
 	min    int
@@ -30,15 +25,18 @@ type StockStats struct {
 
 var bidStats, askStats *StockStats
 var myBid, myAsk int
-var c *s.Client = &s.Client{}
-var latest *ring.Ring = &ring.Ring{}
+var c *s.Client
+var latest *ring.Ring
 var ringMux *sync.Mutex
-var bidTicker = time.NewTicker(time.Millisecond * 250)
-var askTicker = time.NewTicker(time.Millisecond * 250)
+var bidTicker, askTicker *time.Ticker
 
 func init() {
-	book.mux = &sync.Mutex{}
-	book.orders = &s.OrderBook{}
+	latest = &ring.Ring{}
+	c = &s.Client{}
+	ringMux = &sync.Mutex{}
+	bidTicker = time.NewTicker(time.Millisecond * 250)
+	askTicker = time.NewTicker(time.Millisecond * 250)
+	fmt.Println("Tickers Started")
 }
 
 func main() {
@@ -47,10 +45,13 @@ func main() {
 		log.Fatal(err)
 		panic(err)
 	}
+	fmt.Println("Level Started")
 	go calcBuy()
 	go calcAsk()
+	fmt.Println("Calc Goroutines started")
 	time.Sleep(time.Second * 10)
 
+	fmt.Println("Start Websockets")
 	tickertape, err := c.NewQuotesTickerTape(level.Account, level.Venues[0])
 	if err != nil {
 		log.Fatal(err)
@@ -122,8 +123,13 @@ func printTickerTape(ws *websocket.Conn, level *s.Level) {
 				Price:     askStats.max,
 			})
 		}
-		fmt.Printf("Bid Statistics: Mean %5d Median %5d Min %5d Max %5d\n", bidStats.mean, bidStats.median, bidStats.min, bidStats.max)
-		fmt.Printf("Ask Statistics: Mean %5d Median %5d Min %5d Max %5d\n", askStats.mean, askStats.median, askStats.min, askStats.max)
+		if bidStats != nil {
+			fmt.Printf("Bid Statistics: Mean %5d Median %5d Min %5d Max %5d\n", bidStats.mean, bidStats.median, bidStats.min, bidStats.max)
+		}
+		if askStats != nil {
+			fmt.Printf("Ask Statistics: Mean %5d Median %5d Min %5d Max %5d\n", askStats.mean, askStats.median, askStats.min, askStats.max)
+		}
+		runtime.Gosched()
 	}
 }
 
@@ -156,29 +162,31 @@ func calcBuy() {
 		if len(quotes) < 5 {
 			continue
 		}
-		var bidData = []float64{}
+		var bidData = make([]float64, 10, 10)
 		for _, v := range quotes {
 			quote := v.(s.QuoteResponse)
 			bidData = append(bidData, float64(quote.Quote.Bid))
 		}
 		median, err := stats.Median(bidData)
 		if err != nil {
+			log.Fatal(err)
 			panic(err)
 		}
-
 		mean, err := stats.Mean(bidData)
 		if err != nil {
+			log.Fatal(err)
 			panic(err)
 		}
 		min, err := stats.Min(bidData)
 		if err != nil {
+			log.Fatal(err)
 			panic(err)
 		}
 		max, err := stats.Max(bidData)
 		if err != nil {
+			log.Fatal(err)
 			panic(err)
 		}
-
 		if bidStats == nil {
 			bidStats = &StockStats{
 				median: int(median),
@@ -192,7 +200,7 @@ func calcBuy() {
 			bidStats.mean = int(mean)
 			bidStats.max = int(max)
 		}
-
+		runtime.Gosched()
 	}
 }
 
@@ -204,25 +212,29 @@ func calcAsk() {
 		if len(quotes) < 5 {
 			continue
 		}
-		var askData = []float64{}
+		var askData = make([]float64, 10, 10)
 		for _, v := range quotes {
 			quote := v.(s.QuoteResponse)
 			askData = append(askData, float64(quote.Quote.Ask))
 		}
 		median, err := stats.Median(askData)
 		if err != nil {
+			log.Fatal(err)
 			panic(err)
 		}
 		mean, err := stats.Mean(askData)
 		if err != nil {
+			log.Fatal(err)
 			panic(err)
 		}
 		min, err := stats.Min(askData)
 		if err != nil {
+			log.Fatal(err)
 			panic(err)
 		}
 		max, err := stats.Max(askData)
 		if err != nil {
+			log.Fatal(err)
 			panic(err)
 		}
 		if askStats == nil {
@@ -238,5 +250,6 @@ func calcAsk() {
 			askStats.median = int(median)
 			askStats.max = int(max)
 		}
+		runtime.Gosched()
 	}
 }
