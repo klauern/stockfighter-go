@@ -3,14 +3,14 @@ package main
 import (
 	"fmt"
 	"log"
-	"sync"
 	"time"
+
+	"runtime"
 
 	"github.com/gorilla/websocket"
 	s "github.com/klauern/stockfighter-go"
 	"github.com/montanaflynn/stats"
 	"github.com/zfjagann/golang-ring"
-	"runtime"
 )
 
 // goal: purchase 100,000 shares.  Not sure what the parameters are supposed to be, but as long as it doesn't hose me,
@@ -23,20 +23,21 @@ type StockStats struct {
 	//mux    *sync.Mutex
 }
 
+var totalPurchased int
+
 var bidStats, askStats *StockStats
-var myBid, myAsk int
+
 var c *s.Client
 var latest *ring.Ring
-var ringMux *sync.Mutex
 var bidTicker, askTicker *time.Ticker
 
 func init() {
 	latest = &ring.Ring{}
 	c = &s.Client{}
-	ringMux = &sync.Mutex{}
 	bidTicker = time.NewTicker(time.Millisecond * 250)
 	askTicker = time.NewTicker(time.Millisecond * 250)
 	fmt.Println("Tickers Started")
+	bidStats = calcBuy()
 }
 
 func main() {
@@ -49,7 +50,6 @@ func main() {
 	go calcBuy()
 	go calcAsk()
 	fmt.Println("Calc Goroutines started")
-	time.Sleep(time.Second * 10)
 
 	fmt.Println("Start Websockets")
 	tickertape, err := c.NewQuotesTickerTape(level.Account, level.Venues[0])
@@ -89,48 +89,48 @@ func printTickerTape(ws *websocket.Conn, level *s.Level) {
 		// Create Quote, fix OrderBook
 		//fmt.Printf("Spread: %5d / %-5d - Last %5d\t\n", quote.Quote.Bid, quote.Quote.Ask, quote.Quote.Last)
 
-		ringMux.Lock()
 		latest.Enqueue(quote)
-		ringMux.Unlock()
 
 		//fmt.Printf("Ring capacity %v\n", latest.Capacity())
-		if quote.Quote.Bid > myBid && quote.Quote.Ask > myAsk {
-			diff := quote.Quote.Bid - myBid
-			if diff < 0 {
-				diff = diff * -1
-			}
-			if diff < 100 {
-				fmt.Printf("Difference is %d", diff)
-				myBid = quote.Quote.Ask + 5
-			}
+		//ringMux.Lock()
+		if bidStats != nil {
+			fmt.Println("Buy Order")
 			c.PlaceOrder(&s.Order{
 				Account:   level.Account,
 				Venue:     level.Venues[0],
 				Stock:     level.Tickers[0],
 				Qty:       10000,
 				Direction: "buy",
-				OrderType: "limit",
-				Price:     bidStats.min,
+				OrderType: "ioc",
+				Price:     bidStats.max + 5,
 			})
-			myAsk = quote.Quote.Ask - 5
+		}
+		//ringMux.Unlock()
+		//fmt.Println("Buy Order Placed")
+		//fmt.Println("Ask Order")
+		//ringMux.Lock()
+		if askStats != nil {
+			fmt.Println("Sell Order")
 			c.PlaceOrder(&s.Order{
 				Account:   level.Account,
 				Venue:     level.Venues[0],
 				Stock:     level.Tickers[0],
-				Qty:       10000,
+				Qty:       9000,
 				Direction: "sell",
 				OrderType: "ioc",
-				Price:     askStats.max,
+				Price:     askStats.max + 100,
 			})
 		}
-		if bidStats != nil {
-			fmt.Printf("Bid Statistics: Mean %5d Median %5d Min %5d Max %5d\n", bidStats.mean, bidStats.median, bidStats.min, bidStats.max)
-		}
-		if askStats != nil {
-			fmt.Printf("Ask Statistics: Mean %5d Median %5d Min %5d Max %5d\n", askStats.mean, askStats.median, askStats.min, askStats.max)
-		}
-		runtime.Gosched()
+		//ringMux.Unlock()
+		//fmt.Println("Ask Order Placed")
 	}
+	if bidStats != nil {
+		fmt.Printf("Bid Statistics: Mean %5d Median %5d Min %5d Max %5d\n", bidStats.mean, bidStats.median, bidStats.min, bidStats.max)
+	}
+	if askStats != nil {
+		fmt.Printf("Ask Statistics: Mean %5d Median %5d Min %5d Max %5d\n", askStats.mean, askStats.median, askStats.min, askStats.max)
+	}
+	runtime.Gosched()
 }
 
 func printExecutions(ws *websocket.Conn, level *s.Level) {
@@ -140,6 +140,12 @@ func printExecutions(ws *websocket.Conn, level *s.Level) {
 		if err != nil {
 			log.Printf("ExecutionResponse Error: %v\n", err)
 		}
+		if execution.Order.OrderType == "buy" {
+			totalPurchased += execution.Filled
+		} else if execution.Order.OrderType == "sell" {
+			totalPurchased -= execution.Filled
+		}
+		fmt.Printf("Total Filled so far %d\n", totalPurchased)
 		fmt.Printf("Execution: %s - %5d at %-5d\n", execution.Account, execution.Filled, execution.Price)
 		if !execution.IncomingComplete && execution.Filled < 5000 {
 			resp, err := c.CancelOrder(execution.Venue, execution.Symbol, string(execution.IncomingId))
@@ -154,102 +160,79 @@ func printExecutions(ws *websocket.Conn, level *s.Level) {
 	}
 }
 
-func calcBuy() {
-	for range bidTicker.C {
-		ringMux.Lock()
-		var quotes []interface{} = latest.Values()
-		ringMux.Unlock()
-		if len(quotes) < 5 {
-			continue
-		}
-		var bidData = make([]float64, 10, 10)
-		for _, v := range quotes {
-			quote := v.(s.QuoteResponse)
-			bidData = append(bidData, float64(quote.Quote.Bid))
-		}
-		median, err := stats.Median(bidData)
-		if err != nil {
-			log.Fatal(err)
-			panic(err)
-		}
-		mean, err := stats.Mean(bidData)
-		if err != nil {
-			log.Fatal(err)
-			panic(err)
-		}
-		min, err := stats.Min(bidData)
-		if err != nil {
-			log.Fatal(err)
-			panic(err)
-		}
-		max, err := stats.Max(bidData)
-		if err != nil {
-			log.Fatal(err)
-			panic(err)
-		}
-		if bidStats == nil {
-			bidStats = &StockStats{
-				median: int(median),
-				min:    int(min),
-				mean:   int(mean),
-				max:    int(max),
-			}
-		} else {
-			bidStats.median = int(median)
-			bidStats.min = int(min)
-			bidStats.mean = int(mean)
-			bidStats.max = int(max)
-		}
-		runtime.Gosched()
-	}
-}
-
 func calcAsk() {
 	for range askTicker.C {
-		ringMux.Lock()
+		//ringMux.Lock()
 		var quotes []interface{} = latest.Values()
-		ringMux.Unlock()
+		//ringMux.Unlock()
+		//fmt.Println("Get len calcAsk")
 		if len(quotes) < 5 {
 			continue
 		}
 		var askData = make([]float64, 10, 10)
+		//fmt.Println("Loop through Ask quotes - calcAsk")
 		for _, v := range quotes {
 			quote := v.(s.QuoteResponse)
 			askData = append(askData, float64(quote.Quote.Ask))
 		}
-		median, err := stats.Median(askData)
-		if err != nil {
-			log.Fatal(err)
-			panic(err)
-		}
-		mean, err := stats.Mean(askData)
-		if err != nil {
-			log.Fatal(err)
-			panic(err)
-		}
-		min, err := stats.Min(askData)
-		if err != nil {
-			log.Fatal(err)
-			panic(err)
-		}
-		max, err := stats.Max(askData)
-		if err != nil {
-			log.Fatal(err)
-			panic(err)
-		}
-		if askStats == nil {
-			askStats = &StockStats{
-				min:    int(min),
-				mean:   int(mean),
-				median: int(median),
-				max:    int(max),
-			}
-		} else {
-			askStats.min = int(min)
-			askStats.mean = int(mean)
-			askStats.median = int(median)
-			askStats.max = int(max)
-		}
+		go askStats.calcStats(askData)
 		runtime.Gosched()
+	}
+}
+
+func calcBuy() {
+	for range bidTicker.C {
+		//ringMux.Lock()
+		var quotes []interface{} = latest.Values()
+		//ringMux.Unlock()
+		//fmt.Println("get calcBuy Length")
+		if len(quotes) < 5 {
+			continue
+		}
+		var bidData = make([]float64, 10, 10)
+		//fmt.Println("Loop through Buy quotes - calcBuy")
+		for _, v := range quotes {
+			quote := v.(s.QuoteResponse)
+			bidData = append(bidData, float64(quote.Quote.Bid))
+		}
+		go bidStats.calcStats(bidData)
+		runtime.Gosched()
+	}
+}
+
+// calcStats calculates some rolling data off of the moving window from the ring buffer of bid data
+func (stockStats *StockStats) calcStats(quotes []float64) {
+	median, err := stats.Median(quotes)
+	if err != nil {
+		log.Fatal(err)
+		panic(err)
+	}
+	mean, err := stats.Mean(quotes)
+	if err != nil {
+		log.Fatal(err)
+		panic(err)
+	}
+	min, err := stats.Min(quotes)
+	if err != nil {
+		log.Fatal(err)
+		panic(err)
+	}
+	max, err := stats.Max(quotes)
+	if err != nil {
+		log.Fatal(err)
+		panic(err)
+	}
+	if stockStats == nil {
+		stockStats = &StockStats{
+			min:    int(min),
+			mean:   int(mean),
+			median: int(median),
+			max:    int(max),
+		}
+	} else {
+		stockStats.min = int(min)
+		stockStats.mean = int(mean)
+		stockStats.median = int(median)
+		stockStats.max = int(max)
 	}
 }
