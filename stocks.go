@@ -102,6 +102,11 @@ type ExecutionsResponse struct {
 	IncomingComplete bool      `json:"incomingComplete"`
 }
 
+type OrderStatus struct {
+	*ResponseWrapper
+	Orders []OrderResponse `json:"orders"`
+}
+
 func (c *Client) GetVenueStocks(venue string) (*Stocks, error) {
 	resp, err := c.MakeRequest("GET", API_ENDPOINT+"venues/"+venue+"/stocks", nil)
 	if err != nil {
@@ -182,4 +187,40 @@ func (c *Client) CancelOrder(venue, stock, order string) (*OrderResponse, error)
 		return nil, err
 	}
 	return &orderResp, nil
+}
+
+func (c *Client) GetAllOrderStatus(venue, account string) (*OrderStatus, error) {
+	orderUrl := API_ENDPOINT + "venues/" + venue + "/accounts/" + account + "/orders"
+	resp, err := c.MakeRequest("GET", orderUrl, nil)
+	if err != nil {
+		return nil, err
+	}
+	var orderStatus OrderStatus
+	err = json.Unmarshal(resp, &orderStatus)
+	if err != nil {
+		log.Fatalf("Unmarshal error: %+v", orderStatus)
+		return nil, err
+	}
+	if !orderStatus.Ok || orderStatus.Error != "" {
+		return nil, errors.New(orderStatus.Error)
+	}
+	return &orderStatus, nil
+}
+
+func (c *Client) GetStockOrderStatus(venue, account, stock string) (*OrderStatus, error) {
+	orderUrl := API_ENDPOINT + "venues/" + venue + "/accounts/" + account + "/stocks/" + stock + "/orders"
+	resp, err := c.MakeRequest("GET", orderUrl, nil)
+	if err != nil {
+		return nil, err
+	}
+	var orderStatus OrderStatus
+	err = json.Unmarshal(resp, &orderStatus)
+	if err != nil {
+		log.Fatalf("Unmarshal error: %+v", orderStatus)
+		return nil, err
+	}
+	if !orderStatus.Ok || orderStatus.Error != "" {
+		return nil, errors.New(orderStatus.Error)
+	}
+	return &orderStatus, nil
 }
