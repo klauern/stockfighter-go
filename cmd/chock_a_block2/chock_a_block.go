@@ -15,33 +15,44 @@ type book struct {
 	mux     sync.Mutex
 }
 
+type MyOrders struct {
+	orders *s.OrderStatus
+	mux    sync.Mutex
+}
+
+var level *s.Level
+var orderStatus MyOrders
 var orders book
 var c *s.Client
 var ticker *time.Ticker
 
 func init() {
 	c = &s.Client{}
-	orders = book{
-		theBook: &s.OrderBook{},
-		mux:     sync.Mutex{},
-	}
-	ticker = time.NewTicker(time.Millisecond * 200)
-}
-
-func main() {
 	level, err := c.StartLevel("chock_a_block")
 	if err != nil {
 		log.Fatal(err)
 		panic(err)
 	}
 	fmt.Println("Level Started")
+	orders = book{
+		theBook: &s.OrderBook{},
+		mux:     sync.Mutex{},
+	}
+	status, err := c.GetStockOrderStatus(level.Venues[0], level.Account, level.Tickers[0])
+	if err == nil {
+		orderStatus.orders = status
+	}
+	ticker = time.NewTicker(time.Millisecond * 200)
+}
 
-	go pollOrderBook(level)
+func main() {
+	go pollOrderBook()
+	go pollOrderStatus()
 	go calcBestAsk()
 	time.Sleep(time.Minute * 1)
 }
 
-func pollOrderBook(level *s.Level) {
+func pollOrderBook() {
 	for range ticker.C {
 		book, err := c.GetOrderBook(level.Venues[0], level.Tickers[0])
 		if err == nil {
@@ -49,6 +60,17 @@ func pollOrderBook(level *s.Level) {
 			orders.theBook = book
 			fmt.Printf("Orders\tAsks: %5d Bids: %-5d\n", len(book.Asks), len(book.Bids))
 			orders.mux.Unlock()
+		}
+	}
+}
+
+func pollOrderStatus() {
+	for range ticker.C {
+		book, err := c.GetStockOrderStatus(level.Venues[0], level.Account, level.Tickers[0])
+		if err == nil {
+			orderStatus.mux.Lock()
+			orderStatus.orders = book
+			orderStatus.mux.Unlock()
 		}
 	}
 }
