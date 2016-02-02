@@ -2,9 +2,10 @@ package main
 
 import (
 	"fmt"
-	s "github.com/klauern/stockfighter-go"
 	"log"
 	"time"
+
+	s "github.com/klauern/stockfighter-go"
 )
 
 var c *s.Client = &s.Client{}

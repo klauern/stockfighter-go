@@ -27,5 +27,4 @@ func (orders *MyOrders) pollOrderStatus() {
 			}
 		}
 	}
-
 }
