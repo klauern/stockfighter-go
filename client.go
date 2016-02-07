@@ -3,6 +3,7 @@ package stockfighter
 import (
 	"bytes"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"io/ioutil"
 	"log"
@@ -93,20 +94,29 @@ func NewLevel(level string, c *Client) (*Level, error) {
 		fmt.Printf("StartLevel Resp: %+v", string(resp))
 		return nil, err
 	}
+	if len(levelResp.Error) > 0 {
+		return nil, errors.New(levelResp.Error)
+	}
 	return levelResp, nil
 }
 
 func (l *Level) RestartLevel(c *Client) error {
+	fmt.Printf("Restarting Level %s", string(l.InstanceId))
 	resp, err := c.MakeRequest("POST", GameMasterApi+"instances/"+string(l.InstanceId)+"/restart", nil)
 	if err != nil {
+		fmt.Printf("Error in POST RestartLevel Request, %s", err)
 		log.Fatal(err)
 		return err
 	}
 	levelResp := &Level{}
 	err = json.Unmarshal(resp, &levelResp)
 	if err != nil {
+		log.Fatal(err)
 		fmt.Printf("RestartLevel Resp: %+v", string(resp))
 		return err
+	}
+	if len(levelResp.Error) > 0 {
+		return errors.New(levelResp.Error)
 	}
 	*l = *levelResp
 	return nil
