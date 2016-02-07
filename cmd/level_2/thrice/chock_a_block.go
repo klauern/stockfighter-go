@@ -41,7 +41,7 @@ func monitorFills(c s.Client, l *s.Level, buys, sells chan filledStocks) {
 				fmt.Printf("Execution Response: %#v\n", r)
 				switch r.Order.Direction {
 				case "buy":
-					fmt.Printf("Buy %d", r.Filled)
+					fmt.Printf("Buy %d\n", r.Filled)
 					buys <- filledStocks(r.Filled)
 				case "sell":
 					fmt.Printf("Sell %d\n", r.Filled)
@@ -104,15 +104,15 @@ func unmarshalExecutionResponse(r io.Reader) (*s.ExecutionsResponse, error) {
 }
 
 func monitorGameProgress(level *s.Level, c *s.Client) {
-	t := time.NewTicker(1 * time.Minute)
+	t := time.NewTicker(5 * time.Second)
 	for range t.C {
-		inst, err := c.IsLevelActive(level.InstanceId, os.Getenv(s.API_KEY_ENV))
+		inst, err := level.IsLevelActive(c)
 		if err != nil {
 			fmt.Printf("Error in getting level status: %s\nWill Exit", err)
 			os.Exit(1)
 		}
+		fmt.Printf("Level State: %#v", inst)
 		if inst.Done {
-			fmt.Printf("Level State: %#v", inst)
 			os.Exit(0)
 		}
 	}
@@ -121,7 +121,7 @@ func monitorGameProgress(level *s.Level, c *s.Client) {
 func main() {
 	c := s.Client{}
 	fmt.Printf("Starting level\n")
-	level, err := c.StartLevel(level)
+	level, err := s.NewLevel(level, &c)
 	if err != nil {
 		fmt.Printf("Error starting level: %s\n", err)
 		os.Exit(1)

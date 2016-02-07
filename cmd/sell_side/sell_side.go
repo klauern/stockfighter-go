@@ -11,7 +11,7 @@ import (
 var c *s.Client = &s.Client{}
 
 func main() {
-	level, err := c.StartLevel("chock_a_block")
+	level, err := s.NewLevel("sell_side", c)
 	if err != nil {
 		log.Fatal(err)
 	}

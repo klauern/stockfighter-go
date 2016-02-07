@@ -5,7 +5,7 @@ import s "github.com/klauern/stockfighter-go"
 var c *s.Client = &s.Client{}
 
 func main() {
-	level, _ := c.StartLevel("chock_a_block")
+	level, _ := s.NewLevel("chock_a_block", c)
 	c.PlaceOrder(&s.Order{
 		Account:   level.Account,
 		Venue:     level.Venues[0],

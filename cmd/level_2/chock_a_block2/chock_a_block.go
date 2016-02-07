@@ -28,7 +28,7 @@ var ticker *time.Ticker
 
 func init() {
 	c = &s.Client{}
-	level, err := c.StartLevel("chock_a_block")
+	level, err := s.NewLevel("chock_a_block", c)
 	if err != nil {
 		log.Fatal(err)
 		panic(err)

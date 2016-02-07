@@ -42,15 +42,17 @@ type LevelInstance struct {
 
 type Client struct {
 	Headers map[string]string
+	apiKey  string
 }
 
 func (c *Client) setAuthentication() {
 	if c.Headers == nil {
 		c.Headers = map[string]string{}
 	}
+	c.apiKey = os.Getenv(API_KEY_ENV)
 	c.Headers["Accept"] = "application/json"
-	c.Headers["X-Starfighter-Authorization"] = os.Getenv(API_KEY_ENV)
-	c.Headers["Cookie"] = "api_key=" + os.Getenv(API_KEY_ENV)
+	c.Headers["X-Starfighter-Authorization"] = c.apiKey
+	c.Headers["Cookie"] = "api_key=" + c.apiKey
 }
 
 func (c *Client) MakeRequest(method, url string, bodyI interface{}) ([]byte, error) {
@@ -79,7 +81,7 @@ func (c *Client) MakeRequest(method, url string, bodyI interface{}) ([]byte, err
 	return body, nil
 }
 
-func (c *Client) StartLevel(level string) (*Level, error) {
+func NewLevel(level string, c *Client) (*Level, error) {
 	resp, err := c.MakeRequest("POST", GameMasterApi+"levels/"+level, nil)
 	if err != nil {
 		panic(err)
@@ -89,63 +91,65 @@ func (c *Client) StartLevel(level string) (*Level, error) {
 	levelResp := &Level{}
 	err = json.Unmarshal(resp, &levelResp)
 	if err != nil {
-		fmt.Printf("Resp: %+v", string(resp))
+		fmt.Printf("StartLevel Resp: %+v", string(resp))
 		panic(err)
 	}
 	return levelResp, nil
 }
 
-func (c *Client) RestartLevel(instance int, api_key string) (*Level, error) {
-	resp, err := c.MakeRequest("POST", GameMasterApi+"instances/"+string(instance)+"/restart", nil)
+func (l *Level) RestartLevel(c *Client) error {
+	resp, err := c.MakeRequest("POST", GameMasterApi+"instances/"+string(l.InstanceId)+"/restart", nil)
 	if err != nil {
 		panic(err)
 		log.Fatal(err)
-		return nil, err
+		return err
 	}
 	levelResp := &Level{}
 	err = json.Unmarshal(resp, &levelResp)
 	if err != nil {
-		fmt.Printf("Resp: %+v", string(resp))
+		fmt.Printf("RestartLevel Resp: %+v", string(resp))
 		panic(err)
 	}
-	return levelResp, nil
+	*l = *levelResp
+	return nil
 }
 
-func (c *Client) StopLevel(instance int, api_key string) (*Level, error) {
-	resp, err := c.MakeRequest("POST", GameMasterApi+"instances/"+string(instance)+"/stop", nil)
+func (l *Level) StopLevel(c *Client) error {
+	resp, err := c.MakeRequest("POST", GameMasterApi+"instances/"+string(l.InstanceId)+"/stop", nil)
 	if err != nil {
 		panic(err)
 		log.Fatal(err)
-		return nil, err
+		return err
 	}
 	levelResp := &Level{}
 	err = json.Unmarshal(resp, &levelResp)
 	if err != nil {
-		fmt.Printf("Resp: %+v", string(resp))
+		fmt.Printf("StopLevel Resp: %+v", string(resp))
 		panic(err)
 	}
-	return levelResp, nil
+	*l = *levelResp
+	return nil
 
 }
 
-func (c *Client) ResumeLevel(instance int, api_key string) (*Level, error) {
-	resp, err := c.MakeRequest("POST", GameMasterApi+"instances/"+string(instance)+"/resume", nil)
+func (l *Level) ResumeLevel(c *Client) error {
+	resp, err := c.MakeRequest("POST", GameMasterApi+"instances/"+string(l.InstanceId)+"/resume", nil)
 	if err != nil {
-		panic(err)
 		log.Fatal(err)
-		return nil, err
+		return err
 	}
 	levelResp := &Level{}
 	err = json.Unmarshal(resp, &levelResp)
 	if err != nil {
-		fmt.Printf("Resp: %+v", string(resp))
-		panic(err)
+		fmt.Printf("ResumeLevel Resp: %+v", string(resp))
+		return err
 	}
-	return levelResp, nil
+	*l = *levelResp
+	return nil
 }
 
-func (c *Client) IsLevelActive(instance int, apiKey string) (*LevelInstance, error) {
-	resp, err := c.MakeRequest("GET", GameMasterApi+"instances/"+string(instance), nil)
+func (l *Level) IsLevelActive(c *Client) (*LevelInstance, error) {
+	resp, err := c.MakeRequest("GET", GameMasterApi+"instances/"+string(l.InstanceId), nil)
 	if err != nil {
 		panic(err)
 		log.Fatal(err)
@@ -154,7 +158,7 @@ func (c *Client) IsLevelActive(instance int, apiKey string) (*LevelInstance, err
 	levelResp := &LevelInstance{}
 	err = json.Unmarshal(resp, &levelResp)
 	if err != nil {
-		fmt.Printf("Resp: %+v", string(resp))
+		fmt.Printf("IsLevelActive Resp: %+v", string(resp))
 		panic(err)
 	}
 	return levelResp, nil

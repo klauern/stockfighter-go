@@ -37,11 +37,11 @@ func init() {
 	bidTicker = time.NewTicker(time.Millisecond * 250)
 	askTicker = time.NewTicker(time.Millisecond * 250)
 	fmt.Println("Tickers Started")
-	bidStats = calcBuy()
+	calcBuy()
 }
 
 func main() {
-	level, err := c.StartLevel("chock_a_block")
+	level, err := s.NewLevel("chock_a_block", c)
 	if err != nil {
 		log.Fatal(err)
 		panic(err)

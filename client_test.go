@@ -1,18 +1,35 @@
 package stockfighter
 
 import (
-	"fmt"
 	"testing"
 )
 
 var c *Client = &Client{}
 
-func TestStartLevel(t *testing.T) {
-	output, err := c.StartLevel("first_steps")
+func TestLevelControls(t *testing.T) {
+	c.setAuthentication()
+	level, err := NewLevel("first_steps", c)
 	if err != nil {
 		t.Fatal(err)
 	}
-	fmt.Printf("%+v", output)
+	if !level.Ok {
+		t.Errorf("Level Not OKAY after Starting it: %v", level)
+	}
+
+	err = level.RestartLevel(c)
+	if err != nil {
+		t.Errorf("Error Restarting Level: %s", err)
+		t.Fatal(err)
+	}
+
+	err = level.StopLevel(c)
+	if err != nil {
+		t.Errorf("Error stopping Level: %s", err)
+		t.Fatal(err)
+	}
+	if !level.Ok {
+		t.Errorf("Level Not OKAY after Stopping: %v", level)
+	}
 }
 
 func TestMakeRequestHeartbeat(t *testing.T) {
@@ -38,4 +55,10 @@ func TestMakeRequestVenues(t *testing.T) {
 	if answer == nil {
 		t.Fatal(answer)
 	}
+}
+
+func TestIsLevelActive(t *testing.T) {
+	c := &Client{}
+	c.setAuthentication()
+
 }
