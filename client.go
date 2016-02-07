@@ -84,7 +84,6 @@ func (c *Client) MakeRequest(method, url string, bodyI interface{}) ([]byte, err
 func NewLevel(level string, c *Client) (*Level, error) {
 	resp, err := c.MakeRequest("POST", GameMasterApi+"levels/"+level, nil)
 	if err != nil {
-		panic(err)
 		log.Fatal(err)
 		return nil, err
 	}
@@ -92,7 +91,7 @@ func NewLevel(level string, c *Client) (*Level, error) {
 	err = json.Unmarshal(resp, &levelResp)
 	if err != nil {
 		fmt.Printf("StartLevel Resp: %+v", string(resp))
-		panic(err)
+		return nil, err
 	}
 	return levelResp, nil
 }
@@ -100,7 +99,6 @@ func NewLevel(level string, c *Client) (*Level, error) {
 func (l *Level) RestartLevel(c *Client) error {
 	resp, err := c.MakeRequest("POST", GameMasterApi+"instances/"+string(l.InstanceId)+"/restart", nil)
 	if err != nil {
-		panic(err)
 		log.Fatal(err)
 		return err
 	}
@@ -108,16 +106,16 @@ func (l *Level) RestartLevel(c *Client) error {
 	err = json.Unmarshal(resp, &levelResp)
 	if err != nil {
 		fmt.Printf("RestartLevel Resp: %+v", string(resp))
-		panic(err)
+		return err
 	}
 	*l = *levelResp
 	return nil
 }
 
 func (l *Level) StopLevel(c *Client) error {
+	fmt.Printf("Instance ID: %s\n", string(l.InstanceId))
 	resp, err := c.MakeRequest("POST", GameMasterApi+"instances/"+string(l.InstanceId)+"/stop", nil)
 	if err != nil {
-		panic(err)
 		log.Fatal(err)
 		return err
 	}
@@ -125,7 +123,7 @@ func (l *Level) StopLevel(c *Client) error {
 	err = json.Unmarshal(resp, &levelResp)
 	if err != nil {
 		fmt.Printf("StopLevel Resp: %+v", string(resp))
-		panic(err)
+		return err
 	}
 	*l = *levelResp
 	return nil
@@ -151,7 +149,6 @@ func (l *Level) ResumeLevel(c *Client) error {
 func (l *Level) IsLevelActive(c *Client) (*LevelInstance, error) {
 	resp, err := c.MakeRequest("GET", GameMasterApi+"instances/"+string(l.InstanceId), nil)
 	if err != nil {
-		panic(err)
 		log.Fatal(err)
 		return nil, err
 	}
@@ -159,7 +156,7 @@ func (l *Level) IsLevelActive(c *Client) (*LevelInstance, error) {
 	err = json.Unmarshal(resp, &levelResp)
 	if err != nil {
 		fmt.Printf("IsLevelActive Resp: %+v", string(resp))
-		panic(err)
+		return nil, err
 	}
 	return levelResp, nil
 
