@@ -34,9 +34,9 @@ func TestGetOrderBook(t *testing.T) {
 
 func TestPutOrder(t *testing.T) {
 	order := &Order{
-		Account:   "MST92145671",
-		Venue:     "LOBHEX",
-		Stock:     "LPEI",
+		Account:   "EXB123456",
+		Venue:     "TESTEX",
+		Stock:     "FOOBAR",
 		Qty:       100,
 		Direction: "buy",
 		OrderType: "market",
