@@ -101,13 +101,14 @@ func NewLevel(level string, c *Client) (*Level, error) {
 }
 
 func (l *Level) RestartLevel(c *Client) error {
-	fmt.Printf("Restarting Level %s", string(l.InstanceId))
-	resp, err := c.MakeRequest("POST", GameMasterApi+"instances/"+string(l.InstanceId)+"/restart", nil)
+	fmt.Printf("Restarting Level %d\n", l.InstanceId)
+	resp, err := c.MakeRequest("POST", GameMasterApi+"instances/"+fmt.Sprintf("%d", l.InstanceId)+"/restart", nil)
 	if err != nil {
 		fmt.Printf("Error in POST RestartLevel Request, %s", err)
 		log.Fatal(err)
 		return err
 	}
+	fmt.Printf("RestartLevel Response: %v", string(resp))
 	levelResp := &Level{}
 	err = json.Unmarshal(resp, &levelResp)
 	if err != nil {
@@ -115,7 +116,7 @@ func (l *Level) RestartLevel(c *Client) error {
 		fmt.Printf("RestartLevel Resp: %+v", string(resp))
 		return err
 	}
-	if len(levelResp.Error) > 0 {
+	if !levelResp.Ok {
 		return errors.New(levelResp.Error)
 	}
 	*l = *levelResp
@@ -124,7 +125,7 @@ func (l *Level) RestartLevel(c *Client) error {
 
 func (l *Level) StopLevel(c *Client) error {
 	fmt.Printf("Instance ID: %s\n", string(l.InstanceId))
-	resp, err := c.MakeRequest("POST", GameMasterApi+"instances/"+string(l.InstanceId)+"/stop", nil)
+	resp, err := c.MakeRequest("POST", GameMasterApi+"instances/"+fmt.Sprintf("%d", l.InstanceId)+"/stop", nil)
 	if err != nil {
 		log.Fatal(err)
 		return err
@@ -140,6 +141,10 @@ func (l *Level) StopLevel(c *Client) error {
 
 }
 
+/*
+ResumeLevel will return the running status of is an API callout to the gamemaster API, following documentation provided on the
+Discuss Starfighters site: https://discuss.starfighters.io/t/the-gm-api-how-to-start-stop-restart-resume-trading-levels-automagically/143
+*/
 func (l *Level) ResumeLevel(c *Client) error {
 	resp, err := c.MakeRequest("POST", GameMasterApi+"instances/"+string(l.InstanceId)+"/resume", nil)
 	if err != nil {

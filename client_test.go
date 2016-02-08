@@ -1,9 +1,12 @@
 package stockfighter
 
-import "testing"
+import (
+	"fmt"
+	"testing"
+	"time"
+)
 
 var c *Client = &Client{}
-var levelTest *Level
 
 func TestStartLevel(t *testing.T) {
 	c.setAuthentication()
@@ -11,28 +14,35 @@ func TestStartLevel(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if !level.Ok {
-		t.Fatalf("Not OK: %s", level.Error)
+	var tests = []struct {
+		in  string
+		out string
+	}{
+		{level.Error, ""},
+		{fmt.Sprintf("%t", level.Ok), "true"},
+	}
+	for _, tt := range tests {
+		if tt.in != tt.out {
+			t.Errorf("Expected %s, Got %s", tt.in, tt.out)
+		}
 	}
 }
 
 func TestLevelControls(t *testing.T) {
 	c.setAuthentication()
 	level, err := NewLevel("chock_a_block", c)
-	//inst := level.InstanceId
-	//venues := level.Venues
 	if err != nil {
 		t.Errorf("StartLevel error: %s", err)
 	}
 	if !level.Ok {
 		t.Errorf("Level Not OKAY after Starting it: %v", level)
 	}
-
+	time.Sleep(time.Second * 5)
 	err = level.RestartLevel(c)
 	if err != nil {
 		t.Errorf("Error Restarting Level: %s\n", err)
 	}
-
+	time.Sleep(time.Second * 5)
 	err = level.StopLevel(c)
 	if err != nil {
 		t.Errorf("Error stopping Level: %s", err)
