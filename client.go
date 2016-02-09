@@ -82,8 +82,8 @@ func (c *Client) MakeRequest(method, url string, bodyI interface{}) ([]byte, err
 	if err != nil {
 		return nil, err
 	}
-	body, err := ioutil.ReadAll(resp.Body)
 	defer resp.Body.Close()
+	body, err := ioutil.ReadAll(resp.Body)
 
 	return body, nil
 }
@@ -132,7 +132,7 @@ func (l *Level) RestartLevel(c *Client) error {
 /*
 StopLevel will stop a level using the Gamemaster API.  Reference documentation can be found on the Discuss Starfighters
 Forum: https://discuss.starfighters.io/t/the-gm-api-how-to-start-stop-restart-resume-trading-levels-automagically/143
- */
+*/
 func (l *Level) StopLevel(c *Client) error {
 	fmt.Printf("Instance ID: %s\n", string(l.InstanceId))
 	resp, err := c.MakeRequest("POST", GameMasterApi+"instances/"+strconv.Itoa(l.InstanceId)+"/stop", nil)
