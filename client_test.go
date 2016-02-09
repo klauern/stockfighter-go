@@ -53,6 +53,19 @@ func TestLevelControls(t *testing.T) {
 	}
 }
 
+func TestResumeLevel(t *testing.T) {
+	c := &Client{}
+	c.setAuthentication()
+	l, err := NewLevel("first_steps", c)
+	if err != nil {
+		t.Error(err)
+	}
+	err = l.ResumeLevel(c)
+	if err != nil {
+		t.Error(err)
+	}
+}
+
 func TestMakeRequestHeartbeat(t *testing.T) {
 	c := &Client{}
 	c.setAuthentication()
