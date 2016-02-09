@@ -20,6 +20,11 @@ const (
 	API_KEY_ENV   = "STOCKFIGHTER_IO_API_KEY"
 )
 
+type ResponseWrapper struct {
+	Ok    bool   `json:"ok"`
+	Error string `json:"error,omitempty"`
+}
+
 type Level struct {
 	*ResponseWrapper
 	InstanceId           int               `json:"instanceId"`

@@ -9,11 +9,6 @@ import (
 	"log"
 )
 
-type ResponseWrapper struct {
-	Ok    bool   `json:"ok"`
-	Error string `json:"error,omitempty"`
-}
-
 type Symbol struct {
 	Name   string `json:"name"`
 	Symbol string `json:"symbol"`
