@@ -12,6 +12,7 @@ import (
 	"os"
 
 	"github.com/gorilla/websocket"
+	"strconv"
 )
 
 const (
@@ -107,7 +108,7 @@ func NewLevel(level string, c *Client) (*Level, error) {
 
 func (l *Level) RestartLevel(c *Client) error {
 	fmt.Printf("Restarting Level %d\n", l.InstanceId)
-	resp, err := c.MakeRequest("POST", GameMasterApi+"instances/"+fmt.Sprintf("%d", l.InstanceId)+"/restart", nil)
+	resp, err := c.MakeRequest("POST", GameMasterApi+"instances/"+strconv.Itoa(l.InstanceId)+"/restart", nil)
 	if err != nil {
 		fmt.Printf("Error in POST RestartLevel Request, %s", err)
 		log.Fatal(err)
@@ -128,9 +129,13 @@ func (l *Level) RestartLevel(c *Client) error {
 	return nil
 }
 
+/*
+StopLevel will stop a level using the Gamemaster API.  Reference documentation can be found on the Discuss Starfighters
+Forum: https://discuss.starfighters.io/t/the-gm-api-how-to-start-stop-restart-resume-trading-levels-automagically/143
+ */
 func (l *Level) StopLevel(c *Client) error {
 	fmt.Printf("Instance ID: %s\n", string(l.InstanceId))
-	resp, err := c.MakeRequest("POST", GameMasterApi+"instances/"+fmt.Sprintf("%d", l.InstanceId)+"/stop", nil)
+	resp, err := c.MakeRequest("POST", GameMasterApi+"instances/"+strconv.Itoa(l.InstanceId)+"/stop", nil)
 	if err != nil {
 		log.Fatal(err)
 		return err
@@ -151,7 +156,7 @@ ResumeLevel will return the running status of is an API callout to the gamemaste
 Discuss Starfighters site: https://discuss.starfighters.io/t/the-gm-api-how-to-start-stop-restart-resume-trading-levels-automagically/143
 */
 func (l *Level) ResumeLevel(c *Client) error {
-	resp, err := c.MakeRequest("POST", GameMasterApi+"instances/"+string(l.InstanceId)+"/resume", nil)
+	resp, err := c.MakeRequest("POST", GameMasterApi+"instances/"+strconv.Itoa(l.InstanceId)+"/resume", nil)
 	if err != nil {
 		log.Fatal(err)
 		return err
@@ -167,7 +172,7 @@ func (l *Level) ResumeLevel(c *Client) error {
 }
 
 func (l *Level) IsLevelActive(c *Client) (*LevelInstance, error) {
-	resp, err := c.MakeRequest("GET", GameMasterApi+"instances/"+string(l.InstanceId), nil)
+	resp, err := c.MakeRequest("GET", GameMasterApi+"instances/"+strconv.Itoa(l.InstanceId), nil)
 	if err != nil {
 		log.Fatal(err)
 		return nil, err
