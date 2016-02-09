@@ -134,7 +134,7 @@ StopLevel will stop a level using the Gamemaster API.  Reference documentation c
 Forum: https://discuss.starfighters.io/t/the-gm-api-how-to-start-stop-restart-resume-trading-levels-automagically/143
 */
 func (l *Level) StopLevel(c *Client) error {
-	fmt.Printf("Instance ID: %s\n", string(l.InstanceId))
+	fmt.Printf("Instance ID: %d\n", l.InstanceId)
 	resp, err := c.MakeRequest("POST", GameMasterApi+"instances/"+strconv.Itoa(l.InstanceId)+"/stop", nil)
 	if err != nil {
 		log.Fatal(err)
