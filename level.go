@@ -43,7 +43,7 @@ func NewLevel(level string, c *Client) (*Level, error) {
 		fmt.Printf("StartLevel Resp: %+v", string(resp))
 		return nil, err
 	}
-	if len(levelResp.Error) > 0 {
+	if !levelResp.Ok || len(levelResp.Error) > 0 {
 		return nil, errors.New(levelResp.Error)
 	}
 	return levelResp, nil
