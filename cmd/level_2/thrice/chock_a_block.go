@@ -126,7 +126,7 @@ func main() {
 		fmt.Printf("Error starting level: %s\n", err)
 		os.Exit(1)
 	}
-	totalFilled := filledStocks(0)
+	totalFilled := &filledStocks(0)
 	buys := make(chan filledStocks)
 	sells := make(chan filledStocks)
 	fmt.Printf("Monitoring Game Progress\n")
