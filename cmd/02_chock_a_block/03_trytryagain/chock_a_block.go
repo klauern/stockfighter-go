@@ -122,11 +122,11 @@ func main() {
 	c := s.Client{}
 	fmt.Printf("Starting level\n")
 	level, err := s.NewLevel(level, &c)
-	if err != nil {
+	if err != nil || !level.Ok || len(level.Error) > 0 {
 		fmt.Printf("Error starting level: %s\n", err)
 		os.Exit(1)
 	}
-	totalFilled := &filledStocks(0)
+	totalFilled := filledStocks(0)
 	buys := make(chan filledStocks)
 	sells := make(chan filledStocks)
 	fmt.Printf("Monitoring Game Progress\n")
@@ -135,6 +135,7 @@ func main() {
 	go monitorFills(c, level, buys, sells)
 	fmt.Printf("Monitoring Quotes\n")
 	go monitorQuotes(c, level)
+	//tradingDay := level.
 	select {
 	case buy := <-buys:
 		totalFilled += buy
